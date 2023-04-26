@@ -7,6 +7,7 @@ import re
 import dimsim  # 音近字
 import time
 from datetime import datetime
+import sys
 
 es = Elasticsearch(
     hosts="trueint.lu.im.ntu.edu.tw",
@@ -24,6 +25,30 @@ es = Elasticsearch(
 # df = pd.read_csv("CNS_SUMMARY_TABLE.csv", encoding="utf8")
 df = pd.read_csv("/home/ericaaaaaaa/logoshot/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 # print(df)
+
+
+def get_object_size(obj):
+    """Recursively calculates the memory used by an object and all nested elements."""
+    size = sys.getsizeof(obj)
+
+    if size is None:
+        return 0
+    elif isinstance(obj, dict):
+        size += sum(
+            get_object_size(key) + get_object_size(value) for key, value in obj.items()
+        )
+    elif isinstance(obj, (list, tuple, set)):
+        size += sum(get_object_size(item) for item in obj)
+    elif hasattr(obj, "__iter__") and not isinstance(obj, str):
+        size += sum(get_object_size(item) for item in obj)
+
+    return size
+
+
+# example usage
+my_dict = {"key1": {"subkey1": [1, 2, 3], "subkey2": {"nestedkey1": "value1"}}}
+size = get_object_size(my_dict)
+print(f"Memory used by object: {size} bytes")
 
 
 def toComponents(trademarkName, df=df):
@@ -111,11 +136,11 @@ def travel_es(es, result_list, **kwargs):
             result_list.append(data["hits"]["hits"])
             scroll_size = len(data["hits"]["hits"])
             total_size += scroll_size
-            print("total_size:", total_size)
+            # print("total_size:", total_size)
 
             # 不要讓程式搜尋太多不必要的結果
-            if total_size >= 10000:
-                break
+            # if total_size >= 2:
+            #     break
 
     print("總查詢資料筆數:", total_size)
     return total_size
@@ -167,24 +192,24 @@ def esQuery(
     # ** 注意 searchKeywords 若為 [] **
 
     # 如果使用者［有］輸入搜尋條件，就會有不同種的篩選 & 對應的計分機制
-    if (
-        searchKeywords != []
-        or target_draft_c != ""
-        or target_draft_e != ""
-        or target_draft_j != ""
-        or target_classcodes != []
-        or target_color != ""
-        or target_applicant != ""
-        or target_startTime != ""
-        or target_endTime != ""
-    ):
-        query_body["query"]["bool"] = {}
-        query_body["query"]["bool"]["must"] = []  # 必須都滿足且算分 (目前沒用到)
-        query_body["query"]["bool"]["should"] = []  # 滿足其中一個且算分
-        query_body["query"]["bool"]["filter"] = []  # 必須滿足但不算分
-    # 如果使用者［沒有］輸入任何搜尋條件，就查詢所有數據 (但為了得到理想的搜尋結果，使用者目前被要求一定要下搜尋條件，所以不會掉進來)
-    else:
-        query_body["query"]["match_all"] = {}
+    # if (
+    #     searchKeywords != []
+    #     or target_draft_c != ""
+    #     or target_draft_e != ""
+    #     or target_draft_j != ""
+    #     or target_classcodes != []
+    #     or target_color != ""
+    #     or target_applicant != ""
+    #     or target_startTime != ""
+    #     or target_endTime != ""
+    # ):
+    #     query_body["query"]["bool"] = {}
+    #     query_body["query"]["bool"]["must"] = []  # 必須都滿足且算分 (目前沒用到)
+    #     query_body["query"]["bool"]["should"] = []  # 滿足其中一個且算分
+    #     query_body["query"]["bool"]["filter"] = []  # 必須滿足但不算分
+    # # 如果使用者［沒有］輸入任何搜尋條件，就查詢所有數據 (但為了得到理想的搜尋結果，使用者目前被要求一定要下搜尋條件，所以不會掉進來)
+    # else:
+    query_body["query"]["match_all"] = {}
 
     # 定義哪個搜尋條件適用哪種篩選 (should or filter)
     # 以下是使用 should 的條件
@@ -294,7 +319,13 @@ def esQuery(
     print("【query_body】\n", query_body)
 
     # 搜尋、紀錄結果與資料筆數
+    # test memory size
+    st = time.time()
     queryResultsCNT = travel_es(es, resultsAAA, index="logoshot2022", body=query_body)
+    et = time.time()
+    print("time for loading all data: ", et - st)
+    size = get_object_size(resultsAAA)
+    print("memory used by all data", size)
 
     # 針對初步搜尋得出的結果，每一筆都給它一個初始分數 (有 10 筆資料的話，第一名得 10 分)
     score_Result = {}  # 格式為 (tmark-name, _id, CNS_COMPONENTS, appl-no): score
@@ -331,7 +362,7 @@ def esQuery(
 
         # 每一筆初步篩選得出的結果下去計算音近分數
         for outerPage in resultsAAA:
-            for data in outerPage:  # TODO: outerPage 裡只有一個 element，所以好像不需要這個 for
+            for data in outerPage:
                 try:
                     regeTMname_search = re.sub(
                         r"[^\u4e00-\u9fa5]", "", data["_source"]["tmark-name"]
@@ -425,7 +456,7 @@ def esQuery(
     # print("sorted_result", sorted_result)
     # print(*[(data[0][0], data[0][1], data[0][3])
     #       for data in sorted_result[:100]], sep="\n")
-    print(*sorted_result[:100], sep="\n")
+    print(*sorted_result[:10], sep="\n")
 
     # 從 sorted_result 中取出每筆資料的 id，並以 id 在 elasticsearch 中搜尋對應的 doc 的完整內容
     finalResult_IDList = [data[0][1] for data in sorted_result]
@@ -458,8 +489,9 @@ def esQuery(
     return finalResult
 
 
+esQuery(searchKeywords="", isSimShape=False, isSimSound=False)
 # esQuery(target_classcodes=["1"])
-esQuery(searchKeywords="海低勞", isSimSound=True)
+# esQuery(searchKeywords="海低勞", isSimSound=True)
 # esQuery(searchKeywords="文 化事  業股份有限公司")
 # esQuery(target_startTime="2010/01/01")
 # esQuery(target_endTime="2010/01/01")
