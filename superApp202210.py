@@ -54,7 +54,7 @@ def transform_es_return_format(hit_item):
         hit_item["_source"]["tmark-name"],
         hit_item["_id"],
         tuple(hit_item["_source"]["CNS_COMPONENTS"]),
-        hit_item["_source"]["appl-no"],
+        # hit_item["_source"]["appl-no"],
     )
 
 
@@ -394,9 +394,7 @@ def esQuery(
         ]
         # 可以排序的音近字結果，加上不同的分數 (距離越近者，加越多分)
         for data in closeSound_result1:
-            score_Result[(data[0], data[1], tuple(data[2]), data[3])] += (
-                esQueryCNT * 1000
-            )
+            score_Result[data] += esQueryCNT * 1000
             esQueryCNT -= 1
         # 不可排序的音近字結果，全部加上一樣的分數                TODO: 海底撈撈的得分 = 一二三四的得分
         for data in closeSound_result2:
@@ -435,7 +433,7 @@ def esQuery(
         ]
         # 依照形近字結果，加上不同的分數 (字形越相近者，加越多分)
         for data in closeShape_result:
-            score_Result[(data[0], data[1], data[2], data[3])] += esQueryCNT * 1000
+            score_Result[data] += esQueryCNT * 1000
             esQueryCNT -= 1
 
         endTime = time.time()
