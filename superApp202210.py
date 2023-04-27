@@ -22,7 +22,7 @@ es = Elasticsearch(
     # http_auth=('elastic', 'changeme')  # 認證資訊
 )
 
-# df = pd.read_csv("CNS_SUMMARY_TABLE.csv", encoding="utf8")
+# df = pd.read_csv('CNS_SUMMARY_TABLE.csv', encoding='utf8')
 df = pd.read_csv("/home/ericaaaaaaa/logoshot/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 # print(df)
 
@@ -45,10 +45,17 @@ def get_object_size(obj):
     return size
 
 
-# example usage
-my_dict = {"key1": {"subkey1": [1, 2, 3], "subkey2": {"nestedkey1": "value1"}}}
-size = get_object_size(my_dict)
-print(f"Memory used by object: {size} bytes")
+def transform_es_return_format(hit_item):
+    """
+    Turn the original output data format to a more simple one, which only includes '_id',
+    and 'tmark-name', “appl-no”, “CNS-COMPONENTS” in 'source'.
+    """
+    return (
+        hit_item["_source"]["tmark-name"],
+        hit_item["_id"],
+        tuple(hit_item["_source"]["CNS_COMPONENTS"]),
+        hit_item["_source"]["appl-no"],
+    )
 
 
 def toComponents(trademarkName, df=df):
@@ -70,7 +77,7 @@ def toComponents(trademarkName, df=df):
                 if component != "###":
                     componentList = component.split(
                         ","
-                    )  # 編號們變 list ("11, 12" -> [11, 12])
+                    )  # 編號們變 list ('11, 12' -> [11, 12])
                     targetTMComponentsList.extend(componentList)
                 else:
                     pass
@@ -121,22 +128,25 @@ def travel_es(es, result_list, **kwargs):
     print("scroll_size:", scroll_size)
     total_size = scroll_size
     print("total_size:", total_size)
-    result_list.append(res["hits"]["hits"])
+    for hit_item in res["hits"]["hits"]:
+        result_list.append(transform_es_return_format(hit_item))
 
     # 遍歷: 拿 scroll_id 定位，取出 size 筆資料
     if total_size <= 10000:
         while scroll_size > 0:
-            "Scrolling..."
+            # scrolling
             data = es.scroll(scroll_id=sid, scroll="4m")
 
             # update scroll_id
             sid = data["_scroll_id"]
 
             # get results returned in the last scroll
-            result_list.append(data["hits"]["hits"])
+            for hit_item in res["hits"]["hits"]:
+                result_list.append(transform_es_return_format(hit_item))
+            # result_list.extend(data["hits"]["hits"])
             scroll_size = len(data["hits"]["hits"])
             total_size += scroll_size
-            # print("total_size:", total_size)
+            # print('total_size:', total_size)
 
             # 不要讓程式搜尋太多不必要的結果
             # if total_size >= 2:
@@ -192,24 +202,24 @@ def esQuery(
     # ** 注意 searchKeywords 若為 [] **
 
     # 如果使用者［有］輸入搜尋條件，就會有不同種的篩選 & 對應的計分機制
-    # if (
-    #     searchKeywords != []
-    #     or target_draft_c != ""
-    #     or target_draft_e != ""
-    #     or target_draft_j != ""
-    #     or target_classcodes != []
-    #     or target_color != ""
-    #     or target_applicant != ""
-    #     or target_startTime != ""
-    #     or target_endTime != ""
-    # ):
-    #     query_body["query"]["bool"] = {}
-    #     query_body["query"]["bool"]["must"] = []  # 必須都滿足且算分 (目前沒用到)
-    #     query_body["query"]["bool"]["should"] = []  # 滿足其中一個且算分
-    #     query_body["query"]["bool"]["filter"] = []  # 必須滿足但不算分
-    # # 如果使用者［沒有］輸入任何搜尋條件，就查詢所有數據 (但為了得到理想的搜尋結果，使用者目前被要求一定要下搜尋條件，所以不會掉進來)
-    # else:
-    query_body["query"]["match_all"] = {}
+    if (
+        searchKeywords != []
+        or target_draft_c != ""
+        or target_draft_e != ""
+        or target_draft_j != ""
+        or target_classcodes != []
+        or target_color != ""
+        or target_applicant != ""
+        or target_startTime != ""
+        or target_endTime != ""
+    ):
+        query_body["query"]["bool"] = {}
+        query_body["query"]["bool"]["must"] = []  # 必須都滿足且算分 (目前沒用到)
+        query_body["query"]["bool"]["should"] = []  # 滿足其中一個且算分
+        query_body["query"]["bool"]["filter"] = []  # 必須滿足但不算分
+    # 如果使用者［沒有］輸入任何搜尋條件，就查詢所有數據 (但為了得到理想的搜尋結果，使用者目前被要求一定要下搜尋條件，所以不會掉進來)
+    else:
+        query_body["query"]["match_all"] = {}
 
     # 定義哪個搜尋條件適用哪種篩選 (should or filter)
     # 以下是使用 should 的條件
@@ -330,19 +340,10 @@ def esQuery(
     # 針對初步搜尋得出的結果，每一筆都給它一個初始分數 (有 10 筆資料的話，第一名得 10 分)
     score_Result = {}  # 格式為 (tmark-name, _id, CNS_COMPONENTS, appl-no): score
     esQueryCNT = queryResultsCNT  # 複製一份，以免動到真實結果
-    for outerPage in resultsAAA:
-        for data in outerPage:
-            score_Result[
-                (
-                    data["_source"]["tmark-name"],
-                    data["_id"],
-                    tuple(data["_source"]["CNS_COMPONENTS"]),
-                    data["_source"]["appl-no"],
-                    # data["_score"],
-                )
-            ] = esQueryCNT
-            esQueryCNT -= 1
-    # print(*score_Result.items(), sep="\n")
+    for data in resultsAAA:
+        score_Result[data] = esQueryCNT
+        esQueryCNT -= 1
+    # print(*score_Result.items(), sep='\n')
 
     #############################################################################
 
@@ -361,38 +362,30 @@ def esQuery(
         closeSound_result2 = []  # 關鍵詞和商標名稱長度不同(無法排序)的音近字結果
 
         # 每一筆初步篩選得出的結果下去計算音近分數
-        for outerPage in resultsAAA:
-            for data in outerPage:
-                try:
-                    regeTMname_search = re.sub(
-                        r"[^\u4e00-\u9fa5]", "", data["_source"]["tmark-name"]
-                    )  # 只留下中文
-                    # 兩詞長度相同，可以計算音近分數
-                    if len(regeTMname_search) == len(regeTMname_target):
-                        dimsimScore = dimsim.get_distance(
-                            regeTMname_target, regeTMname_search
-                        )  # TODO: 好像應該叫dimsimDistance
-                        closeSound_result1.append(
-                            (
-                                data["_source"]["tmark-name"],
-                                data["_id"],
-                                tuple(data["_source"]["CNS_COMPONENTS"]),
-                                data["_source"]["appl-no"],
-                                dimsimScore,
-                            )
+        for data in resultsAAA:
+            try:
+                regeTMname_search = re.sub(
+                    r"[^\u4e00-\u9fa5]", "", data["_source"]["tmark-name"]
+                )  # 只留下中文
+                # 兩詞長度相同，可以計算音近分數
+                if len(regeTMname_search) == len(regeTMname_target):
+                    dimsimScore = dimsim.get_distance(
+                        regeTMname_target, regeTMname_search
+                    )  # TODO: 好像應該叫dimsimDistance
+                    closeSound_result1.append(
+                        (
+                            data[0],
+                            data[1],
+                            data[2],
+                            data[3],
+                            dimsimScore,
                         )
-                    # 兩詞長度不同，無法計算音近分數
-                    else:
-                        closeSound_result2.append(
-                            (
-                                data["_source"]["tmark-name"],
-                                data["_id"],
-                                tuple(data["_source"]["CNS_COMPONENTS"]),
-                                data["_source"]["appl-no"],
-                            )
-                        )
-                except:
-                    pass
+                    )
+                # 兩詞長度不同，無法計算音近分數
+                else:
+                    closeSound_result2.append(data)
+            except:
+                pass
         esQueryCNT = queryResultsCNT  # 複製一份，以免動到真實結果        TODO 感覺不需要，上面寫過了
 
         # 可以計算音近距離的資料，依照音近距離排序，距離小的在前
@@ -407,7 +400,7 @@ def esQuery(
             esQueryCNT -= 1
         # 不可排序的音近字結果，全部加上一樣的分數                TODO: 海底撈撈的得分 = 一二三四的得分
         for data in closeSound_result2:
-            score_Result[(data[0], data[1], tuple(data[2]), data[3])] += esQueryCNT
+            score_Result[data] += esQueryCNT
         endTime = time.time()
         print("【音近字所耗時間(秒)】", endTime - startTime)
 
@@ -415,7 +408,7 @@ def esQuery(
     if isSimShape == True:
         startTime = time.time()
         closeShape_result = []
-        for key in score_Result:  # TODO: why not "for outerPage in resultAAA"
+        for key in score_Result:  # TODO: why not 'for outerPage in resultAAA'
             # 計算關鍵詞的 component list             TODO: 這一行好像不用放在 for 裡面
             targetTMComponentsList = toComponents(regeTMname_target)
             testTMComponentsList = list(key[2])
@@ -453,9 +446,9 @@ def esQuery(
     # 於文字搜尋會依序列出，於圖片搜尋則會將結果之 _ig, img_path, appl-no 傳給圖片搜尋模型作後續處理。
 
     # 印出結果
-    # print("sorted_result", sorted_result)
+    # print('sorted_result', sorted_result)
     # print(*[(data[0][0], data[0][1], data[0][3])
-    #       for data in sorted_result[:100]], sep="\n")
+    #       for data in sorted_result[:100]], sep='\n')
     print(*sorted_result[:10], sep="\n")
 
     # 從 sorted_result 中取出每筆資料的 id，並以 id 在 elasticsearch 中搜尋對應的 doc 的完整內容
@@ -466,7 +459,7 @@ def esQuery(
             "docs"
         ]
         # for d in finalResult[:100]:
-        #     print(d["_source"]["tmark-name"])
+        #     print(d['_source']['tmark-name'])
 
     finalResultDict = {}
     print("【es ### finalResultDict】")
@@ -490,26 +483,26 @@ def esQuery(
 
 
 esQuery(searchKeywords="", isSimShape=False, isSimSound=False)
-# esQuery(target_classcodes=["1"])
-# esQuery(searchKeywords="海低勞", isSimSound=True)
-# esQuery(searchKeywords="文 化事  業股份有限公司")
-# esQuery(target_startTime="2010/01/01")
-# esQuery(target_endTime="2010/01/01")
-# esQuery(target_color="彩色")
-# esQuery(target_color="墨色")
-# esQuery(searchKeywords="鼎泰豐", target_classcodes=["43"], isSimShape=True, isSimSound=True) #95025
-# esQuery(target_classcodes=["43"]) #95025
-# esQuery(searchKeywords="及圖")
-# esQuery(searchKeywords="及圖", target_draft_j="すき", isImageSearchFilter=False)
-# esQuery(searchKeywords="海低勞", isSimShape=True)
-# esQuery(searchKeywords="頂泰瘋", isSimSound=True)
-# esQuery(searchKeywords="a")
-# esQuery(searchKeywords="賓果")
-# esQuery(searchKeywords="可 可樂")
-# esQuery(target_applicant="南克普布里茲有限公司")
-# esQuery(target_applicant="南克里茲")
-# esQuery(target_applicant="南克 茲")
-# esQuery(searchKeywords="賓果", isSimShape=True)
-# esQuery(target_applicant="資訊公司", target_draft_c="民", target_draft_e="ROAD")
-# esQuery(searchKeywords="這", target_color="彩色")
+# esQuery(target_classcodes=['1'])
+# esQuery(searchKeywords='海低勞', isSimSound=True)
+# esQuery(searchKeywords='文 化事  業股份有限公司')
+# esQuery(target_startTime='2010/01/01')
+# esQuery(target_endTime='2010/01/01')
+# esQuery(target_color='彩色')
+# esQuery(target_color='墨色')
+# esQuery(searchKeywords='鼎泰豐', target_classcodes=['43'], isSimShape=True, isSimSound=True) #95025
+# esQuery(target_classcodes=['43']) #95025
+# esQuery(searchKeywords='及圖')
+# esQuery(searchKeywords='及圖', target_draft_j='すき', isImageSearchFilter=False)
+# esQuery(searchKeywords='海低勞', isSimShape=True)
+# esQuery(searchKeywords='頂泰瘋', isSimSound=True)
+# esQuery(searchKeywords='a')
+# esQuery(searchKeywords='賓果')
+# esQuery(searchKeywords='可 可樂')
+# esQuery(target_applicant='南克普布里茲有限公司')
+# esQuery(target_applicant='南克里茲')
+# esQuery(target_applicant='南克 茲')
+# esQuery(searchKeywords='賓果', isSimShape=True)
+# esQuery(target_applicant='資訊公司', target_draft_c='民', target_draft_e='ROAD')
+# esQuery(searchKeywords='這', target_color='彩色')
 # print(json.dumps(resultsAAA[0][0], indent=2, ensure_ascii=False))
