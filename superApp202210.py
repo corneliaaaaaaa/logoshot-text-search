@@ -47,14 +47,13 @@ def get_object_size(obj):
 
 def transform_es_return_format(hit_item):
     """
-    Turn the original output data format to a more simple one, which only includes '_id',
-    and 'tmark-name', “appl-no”, “CNS-COMPONENTS” in 'source'.
+    Turn the original output data format to a more simple one, which only includes "tmark-name",
+    “appl-no”, “CNS-COMPONENTS” in 'source'.
     """
     return (
         hit_item["_source"]["tmark-name"],
-        hit_item["_id"],
+        hit_item["_source"]["appl-no"],
         tuple(hit_item["_source"]["CNS_COMPONENTS"]),
-        # hit_item["_source"]["appl-no"],
     )
 
 
@@ -132,25 +131,24 @@ def travel_es(es, result_list, **kwargs):
         result_list.append(transform_es_return_format(hit_item))
 
     # 遍歷: 拿 scroll_id 定位，取出 size 筆資料
-    if total_size <= 10000:
-        while scroll_size > 0:
-            # scrolling
-            data = es.scroll(scroll_id=sid, scroll="4m")
+    # if total_size <= 10000:
+    while scroll_size > 0:
+        "Scrolling..."
+        data = es.scroll(scroll_id=sid, scroll="4m")
 
-            # update scroll_id
-            sid = data["_scroll_id"]
+        # update scroll_id
+        sid = data["_scroll_id"]
 
-            # get results returned in the last scroll
-            for hit_item in res["hits"]["hits"]:
-                result_list.append(transform_es_return_format(hit_item))
-            # result_list.extend(data["hits"]["hits"])
-            scroll_size = len(data["hits"]["hits"])
-            total_size += scroll_size
-            # print('total_size:', total_size)
+        # get results returned in the last scroll
+        for hit_item in data["hits"]["hits"]:
+            result_list.append(transform_es_return_format(hit_item))
+        scroll_size = len(data["hits"]["hits"])
+        total_size += scroll_size
+        # print('total_size:', total_size)
 
-            # 不要讓程式搜尋太多不必要的結果
-            # if total_size >= 2:
-            #     break
+        # 不要讓程式搜尋太多不必要的結果
+        if total_size >= 10000:
+            break
 
     print("總查詢資料筆數:", total_size)
     return total_size
@@ -343,6 +341,7 @@ def esQuery(
     for data in resultsAAA:
         score_Result[data] = esQueryCNT
         esQueryCNT -= 1
+    print("score result", len(score_Result))
     # print(*score_Result.items(), sep='\n')
 
     #############################################################################
@@ -377,7 +376,6 @@ def esQuery(
                             data[0],
                             data[1],
                             data[2],
-                            data[3],
                             dimsimScore,
                         )
                     )
@@ -390,7 +388,8 @@ def esQuery(
 
         # 可以計算音近距離的資料，依照音近距離排序，距離小的在前
         closeSound_result1 = [
-            data for data in sorted(closeSound_result1, key=lambda x: x[4])
+            (data[0], data[1], data[2])
+            for data in sorted(closeSound_result1, key=lambda x: x[3])
         ]
         # 可以排序的音近字結果，加上不同的分數 (距離越近者，加越多分)
         for data in closeSound_result1:
@@ -408,7 +407,7 @@ def esQuery(
         closeShape_result = []
         # 計算關鍵詞的 component list
         targetTMComponentsList = toComponents(regeTMname_target)
-        for key in score_Result:  # TODO: why not 'for outerPage in resultAAA'
+        for key in score_Result:
             testTMComponentsList = list(key[2])
             # 找關鍵詞與商標名稱的 component list 之交集
             intersectComponents = intersection_list(
@@ -423,13 +422,14 @@ def esQuery(
                 ratioTestTM = len(intersectComponents) / len(testTMComponentsList)
             # 關鍵詞與商標名稱的比例相乘，存入結果
             closeShape_result.append(
-                (key[0], key[1], key[2], key[3], ratioTargetTM * ratioTestTM)
+                (key[0], key[1], key[2], ratioTargetTM * ratioTestTM)
             )
         esQueryCNT = queryResultsCNT  # 複製一份，以免動到真實結果             TODO: 好像不需要
 
         # 排序結果，比例乘積較大者在前，代表字形較相近
         closeShape_result = [
-            data for data in sorted(closeShape_result, key=lambda x: -x[4])
+            (data[0], data[1], data[2])
+            for data in sorted(closeShape_result, key=lambda x: -x[3])
         ]
         # 依照形近字結果，加上不同的分數 (字形越相近者，加越多分)
         for data in closeShape_result:
@@ -480,9 +480,9 @@ def esQuery(
     return finalResult
 
 
-esQuery(searchKeywords="", isSimShape=False, isSimSound=False)
+# esQuery(searchKeywords="", isSimShape=False, isSimSound=False)
 # esQuery(target_classcodes=['1'])
-# esQuery(searchKeywords='海低勞', isSimSound=True)
+esQuery(searchKeywords="海低勞", isSimSound=True)
 # esQuery(searchKeywords='文 化事  業股份有限公司')
 # esQuery(target_startTime='2010/01/01')
 # esQuery(target_endTime='2010/01/01')
