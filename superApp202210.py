@@ -406,9 +406,9 @@ def esQuery(
     if isSimShape == True:
         startTime = time.time()
         closeShape_result = []
+        # 計算關鍵詞的 component list
+        targetTMComponentsList = toComponents(regeTMname_target)
         for key in score_Result:  # TODO: why not 'for outerPage in resultAAA'
-            # 計算關鍵詞的 component list             TODO: 這一行好像不用放在 for 裡面
-            targetTMComponentsList = toComponents(regeTMname_target)
             testTMComponentsList = list(key[2])
             # 找關鍵詞與商標名稱的 component list 之交集
             intersectComponents = intersection_list(
