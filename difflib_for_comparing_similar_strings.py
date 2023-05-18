@@ -131,7 +131,9 @@ class SequenceMatcher:
     elements the sequences have in common; best case time is linear.
     """
 
-    def __init__(self, isjunk=None, a="", b="", autojunk=True):
+    def __init__(
+        self, isjunk=None, a="", b="", autojunk=True, threshold=0.5, glyph=True
+    ):
         """Construct a SequenceMatcher.
 
         Optional arg isjunk is None (the default), or a one-argument
@@ -194,6 +196,8 @@ class SequenceMatcher:
         self.a = self.b = None
         self.autojunk = autojunk
         self.set_seqs(a, b)
+        self.threshold = threshold
+        self.glyph = glyph
 
     def set_seqs(self, a, b):
         """Set the two sequences to be compared.
@@ -374,7 +378,14 @@ class SequenceMatcher:
         # Windiff ends up at the same place as diff, but by pairing up
         # the unique 'b's and then matching the first two 'a's.
 
-        a, b, b2j, isbjunk = self.a, self.b, self.b2j, self.bjunk.__contains__
+        a, b, b2j, isbjunk, threshold, glyph = (
+            self.a,
+            self.b,
+            self.b2j,
+            self.bjunk.__contains__,
+            self.threshold,
+            self.glyph,
+        )
         if ahi is None:
             ahi = len(a)
         if bhi is None:
@@ -395,14 +406,14 @@ class SequenceMatcher:
             newj2len = {}
             for j in range(blo, bhi):
                 # if a[i] is similar to b[j] enough
-                if compute_similarity(a[i], b[j]) > 0.5:  # TODO
+                if compute_similarity(a[i], b[j], glyph) > threshold:
                     if j < blo:
                         continue
                     if j >= bhi:
                         break
                     k = newj2len[j] = j2lenget(j - 1, 0) + 1
                     s = newj2score[j] = j2scoreget(j - 1, 0) + compute_similarity(
-                        a[i], b[j]
+                        a[i], b[j], glyph
                     )
                     if s > bestscore:
                         besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
