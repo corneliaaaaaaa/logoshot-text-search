@@ -11,3 +11,6 @@ The major difference between this new version of difflib and the original versio
   - To define the similarity, we use cosine similarity for glyph comparing and euclidean distance for sound comparing.
 - Add threshold for similarity comparing
   - If the similarity between two characters, a[i] and b[j], is larger than the threshold, a[i] is then similar enough to b[j].
+- Modify the formula of ratio()
+  - Use the sum of the similarity score of matching blocks to compute ratio, rather than the size of matching blocks.
+  - So ratio = 2 * (sum of the similarity score of matching blocks) / (sum of the sizes of the two strings).
