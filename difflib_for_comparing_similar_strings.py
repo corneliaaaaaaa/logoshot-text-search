@@ -46,7 +46,7 @@ from collections import namedtuple as _namedtuple
 from types import GenericAlias
 from utils import compute_similarity
 
-Match = _namedtuple("Match", "a b size")
+Match = _namedtuple("Match", "a b score")
 
 
 def _calculate_ratio(matches, length):
@@ -379,17 +379,20 @@ class SequenceMatcher:
             ahi = len(a)
         if bhi is None:
             bhi = len(b)
-        besti, bestj, bestscore = alo, blo, 0
+        besti, bestj, bestscore, bestsize = alo, blo, 0, 0
         # find best(most similar) junk-free match
         # during an iteration of the loop, j2score[j] = score of best
         # junk-free match ending with a[i-1] and b[j]
         j2score = {}
+        j2len = {}
         nothing = []
         for i in range(alo, ahi):
             # look at all instances of a[i] in b; note that because
             # b2j has no junk keys, the loop is skipped if a[i] is junk
             j2scoreget = j2score.get
             newj2score = {}
+            j2lenget = j2len.get
+            newj2len = {}
             for j in range(blo, bhi):
                 # if a[i] is similar to b[j] enough
                 if compute_similarity(a[i], b[j]) > 0.5:  # TODO
@@ -397,11 +400,13 @@ class SequenceMatcher:
                         continue
                     if j >= bhi:
                         break
-                    k = newj2score[j] = j2scoreget(j - 1, 0) + compute_similarity(
+                    k = newj2len[j] = j2lenget(j - 1, 0) + 1
+                    s = newj2score[j] = j2scoreget(j - 1, 0) + compute_similarity(
                         a[i], b[j]
                     )
-                    if k > bestscore:
-                        besti, bestj, bestscore = i - k + 1, j - k + 1, k
+                    if s > bestscore:
+                        besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
+            j2len = newj2len
             j2score = newj2score
 
         # Extend the best by non-junk elements on each end.  In particular,
@@ -447,7 +452,7 @@ class SequenceMatcher:
         # ):
         #     bestsize = bestsize + 1
 
-        return Match(besti, bestj, bestscore)
+        return Match(besti, bestj, bestscore), bestsize
 
     def get_matching_blocks(self):
         """Return list of triples describing matching subsequences.
@@ -482,7 +487,8 @@ class SequenceMatcher:
         matching_blocks = []
         while queue:
             alo, ahi, blo, bhi = queue.pop()
-            i, j, k = x = self.find_longest_match(alo, ahi, blo, bhi)
+            x, k = self.find_longest_match(alo, ahi, blo, bhi)
+            i, j, s = x
             # a[alo:i] vs b[blo:j] unknown
             # a[i:i+k] same as b[j:j+k]
             # a[i+k:ahi] vs b[j+k:bhi] unknown
