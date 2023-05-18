@@ -44,6 +44,7 @@ __all__ = [
 from heapq import nlargest as _nlargest
 from collections import namedtuple as _namedtuple
 from types import GenericAlias
+from utils import compute_similarity
 
 Match = _namedtuple("Match", "a b size")
 
@@ -378,46 +379,50 @@ class SequenceMatcher:
             ahi = len(a)
         if bhi is None:
             bhi = len(b)
-        besti, bestj, bestsize = alo, blo, 0
-        # find longest junk-free match
-        # during an iteration of the loop, j2len[j] = length of longest
+        besti, bestj, bestscore = alo, blo, 0
+        # find best(most similar) junk-free match
+        # during an iteration of the loop, j2score[j] = score of best
         # junk-free match ending with a[i-1] and b[j]
-        j2len = {}
+        j2score = {}
         nothing = []
         for i in range(alo, ahi):
             # look at all instances of a[i] in b; note that because
             # b2j has no junk keys, the loop is skipped if a[i] is junk
-            j2lenget = j2len.get
-            newj2len = {}
-            for j in b2j.get(a[i], nothing):
-                # a[i] matches b[j]
-                if j < blo:
-                    continue
-                if j >= bhi:
-                    break
-                k = newj2len[j] = j2lenget(j - 1, 0) + 1
-                if k > bestsize:
-                    besti, bestj, bestsize = i - k + 1, j - k + 1, k
-            j2len = newj2len
+            j2scoreget = j2score.get
+            newj2score = {}
+            for j in range(blo, bhi):
+                # if a[i] is similar to b[j] enough
+                if compute_similarity(a[i], b[j]) > 0.5:  # TODO
+                    if j < blo:
+                        continue
+                    if j >= bhi:
+                        break
+                    k = newj2score[j] = j2scoreget(j - 1, 0) + compute_similarity(
+                        a[i], b[j]
+                    )
+                    if k > bestscore:
+                        besti, bestj, bestscore = i - k + 1, j - k + 1, k
+            j2score = newj2score
 
         # Extend the best by non-junk elements on each end.  In particular,
         # "popular" non-junk elements aren't in b2j, which greatly speeds
         # the inner loop above, but also means "the best" match so far
         # doesn't contain any junk *or* popular non-junk elements.
-        while (
-            besti > alo
-            and bestj > blo
-            and not isbjunk(b[bestj - 1])
-            and a[besti - 1] == b[bestj - 1]
-        ):
-            besti, bestj, bestsize = besti - 1, bestj - 1, bestsize + 1
-        while (
-            besti + bestsize < ahi
-            and bestj + bestsize < bhi
-            and not isbjunk(b[bestj + bestsize])
-            and a[besti + bestsize] == b[bestj + bestsize]
-        ):
-            bestsize += 1
+        # TODO
+        # while (
+        #     besti > alo
+        #     and bestj > blo
+        #     and not isbjunk(b[bestj - 1])
+        #     and a[besti - 1] == b[bestj - 1]
+        # ):
+        #     besti, bestj, bestsize = besti - 1, bestj - 1, bestsize + 1
+        # while (
+        #     besti + bestsize < ahi
+        #     and bestj + bestsize < bhi
+        #     and not isbjunk(b[bestj + bestsize])
+        #     and a[besti + bestsize] == b[bestj + bestsize]
+        # ):
+        #     bestsize += 1
 
         # Now that we have a wholly interesting match (albeit possibly
         # empty!), we may as well suck up the matching junk on each
@@ -426,22 +431,23 @@ class SequenceMatcher:
         # figuring out what to do with it.  In the case of an empty
         # interesting match, this is clearly the right thing to do,
         # because no other kind of match is possible in the regions.
-        while (
-            besti > alo
-            and bestj > blo
-            and isbjunk(b[bestj - 1])
-            and a[besti - 1] == b[bestj - 1]
-        ):
-            besti, bestj, bestsize = besti - 1, bestj - 1, bestsize + 1
-        while (
-            besti + bestsize < ahi
-            and bestj + bestsize < bhi
-            and isbjunk(b[bestj + bestsize])
-            and a[besti + bestsize] == b[bestj + bestsize]
-        ):
-            bestsize = bestsize + 1
+        # TODO
+        # while (
+        #     besti > alo
+        #     and bestj > blo
+        #     and isbjunk(b[bestj - 1])
+        #     and a[besti - 1] == b[bestj - 1]
+        # ):
+        #     besti, bestj, bestsize = besti - 1, bestj - 1, bestsize + 1
+        # while (
+        #     besti + bestsize < ahi
+        #     and bestj + bestsize < bhi
+        #     and isbjunk(b[bestj + bestsize])
+        #     and a[besti + bestsize] == b[bestj + bestsize]
+        # ):
+        #     bestsize = bestsize + 1
 
-        return Match(besti, bestj, bestsize)
+        return Match(besti, bestj, bestscore)
 
     def get_matching_blocks(self):
         """Return list of triples describing matching subsequences.
