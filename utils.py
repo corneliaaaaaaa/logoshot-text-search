@@ -6,7 +6,7 @@ from ast import literal_eval
 from scipy.spatial import distance
 
 # TODO: will connect to db in the future
-path = "C:/Users/USER/projects/logoshot/logoshot-text-search/"
+path = "C:/Users/USER/projects/logoshot/logoshot-text-search/data/"
 df = pd.read_excel(path + "char_vector.xlsx")
 # data preprocess
 df["pinyin_vector"] = df["pinyin_vector"].map(literal_eval)

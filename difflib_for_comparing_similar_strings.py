@@ -424,7 +424,6 @@ class SequenceMatcher:
         # "popular" non-junk elements aren't in b2j, which greatly speeds
         # the inner loop above, but also means "the best" match so far
         # doesn't contain any junk *or* popular non-junk elements.
-        # TODO
         # while (
         #     besti > alo
         #     and bestj > blo
@@ -447,7 +446,6 @@ class SequenceMatcher:
         # figuring out what to do with it.  In the case of an empty
         # interesting match, this is clearly the right thing to do,
         # because no other kind of match is possible in the regions.
-        # TODO
         # while (
         #     besti > alo
         #     and bestj > blo
