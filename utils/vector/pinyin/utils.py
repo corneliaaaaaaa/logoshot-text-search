@@ -1,5 +1,5 @@
 from pypinyin import pinyin, lazy_pinyin, Style
-from .maps import *
+from utils.vector.pinyin.maps import *
 
 def to_pinyin(utterance):
     length = len(utterance)

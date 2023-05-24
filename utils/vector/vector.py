@@ -4,8 +4,8 @@ import pandas as pd
 import re
 import numpy as np
 import math
-from pinyin.pinyin import *
-from pinyin.utils import *
+from utils.vector.pinyin.pinyin import Pinyin, load_pinyin_to_simplified, load_pinyin_to_traditional
+from utils.vector.pinyin.utils import *
 from pypinyin import pinyin, lazy_pinyin, Style
 import os
 

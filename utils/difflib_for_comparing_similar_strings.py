@@ -44,7 +44,7 @@ __all__ = [
 from heapq import nlargest as _nlargest
 from collections import namedtuple as _namedtuple
 from types import GenericAlias
-from utils import compute_similarity
+from utils.similarity import compute_similarity
 
 Match = _namedtuple("Match", "a b score")
 

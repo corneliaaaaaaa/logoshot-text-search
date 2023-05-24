@@ -2,7 +2,7 @@ import os
 import pickle
 
 from pypinyin import pinyin, lazy_pinyin, Style
-import maps
+from utils.vector.pinyin import maps
 
 class Pinyin:
     consonantList = maps.consonantList
@@ -77,7 +77,7 @@ def load_pinyin_to_simplified():
 
     curr_dir, _ = os.path.split(__file__)
     root_dir, _ = os.path.split(curr_dir)
-    DATA_PATH = os.path.join(root_dir, "vector/pinyin", "pinyin_to_simplified.pickle")
+    DATA_PATH = os.path.join(root_dir, "pinyin", "pinyin_to_simplified.pickle")
     sfile = open(DATA_PATH, 'rb')
     pinyin_to_simplified = pickle.load(sfile)
     sfile.close()
@@ -88,7 +88,7 @@ def load_pinyin_to_traditional():
 
     curr_dir, _ = os.path.split(__file__)
     root_dir, _ = os.path.split(curr_dir)
-    DATA_PATH = os.path.join(root_dir, "vector/pinyin", "pinyin_to_traditional.pickle")
+    DATA_PATH = os.path.join(root_dir, "pinyin", "pinyin_to_traditional.pickle")
     tfile = open(DATA_PATH, 'rb')
     pinyin_to_traditional = pickle.load(tfile)
     tfile.close()

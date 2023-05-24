@@ -4,7 +4,7 @@ import numpy as np
 import math
 from ast import literal_eval
 from scipy.spatial import distance
-from vector.vector import *
+from utils.vector.vector import *
 
 def get_vector(char, glyph=True):
     if glyph is True:
@@ -15,6 +15,7 @@ def get_vector(char, glyph=True):
 def compute_similarity(char1, char2, glyph=True):
     vec1 = get_vector(char1, glyph)
     vec2 = get_vector(char2, glyph)
+    print("comp", len(vec1), len(vec2))
 
     if glyph is True:
         return 1 - distance.cosine(np.array(vec1), np.array(vec2))

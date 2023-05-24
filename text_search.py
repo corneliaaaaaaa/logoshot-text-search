@@ -1,4 +1,4 @@
-import difflib_for_comparing_similar_strings as difflib
+from utils.difflib_for_comparing_similar_strings import SequenceMatcher
 import pandas as pd
 
 
@@ -25,7 +25,7 @@ def text_search(
         }
     )
     for index, row in result.iterrows():
-        sm = difflib.SequenceMatcher(
+        sm = SequenceMatcher(
             None, target_trademark_name, row["trademark_name"], True, threshold, glyph
         )
         result.at[index, "matching_blocks"] = sm.get_matching_blocks()
@@ -62,7 +62,7 @@ trademark_name_list = [
 
 threshold = 0.5
 glyph = True
-target_trademark_name = "海底撈"
+target_trademark_name = "養雞場"
 
 text_search(trademark_name_list, target_trademark_name, threshold, glyph)
 text_search(trademark_name_list, target_trademark_name, threshold, not glyph)
