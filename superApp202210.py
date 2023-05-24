@@ -69,7 +69,7 @@ def intersection_list(list_1, list_2):
                 list1.remove(value)
     return list3
 
-
+#TODO: may be moved to utils/es_search.py
 def travel_es(es, result_list, **kwargs):
     """
     依條件搜尋，並遍歷結果。es search 是有數量限制的，所以要用 scroll 實現遍歷搜尋結果的功能。
