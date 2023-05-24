@@ -1,13 +1,12 @@
-# 搜尋順位:
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 import json
 import pandas as pd
 import re
-import dimsim  # 音近字
+import dimsim
 import time
 from datetime import datetime
-import sys
+from utils import get_object_size, transform_es_return_format
 
 es = Elasticsearch(
     hosts="trueint.lu.im.ntu.edu.tw",
@@ -22,41 +21,9 @@ es = Elasticsearch(
     # http_auth=('elastic', 'changeme')  # 認證資訊
 )
 
-# df = pd.read_csv('CNS_SUMMARY_TABLE.csv', encoding='utf8')
-df = pd.read_csv("/home/ericaaaaaaa/logoshot/CNS_SUMMARY_TABLE.csv", encoding="utf8")
-# print(df)
+df = pd.read_csv("/home/ericaaaaaaa/logoshot/data/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 
-
-def get_object_size(obj):
-    """Recursively calculates the memory used by an object and all nested elements."""
-    size = sys.getsizeof(obj)
-
-    if size is None:
-        return 0
-    elif isinstance(obj, dict):
-        size += sum(
-            get_object_size(key) + get_object_size(value) for key, value in obj.items()
-        )
-    elif isinstance(obj, (list, tuple, set)):
-        size += sum(get_object_size(item) for item in obj)
-    elif hasattr(obj, "__iter__") and not isinstance(obj, str):
-        size += sum(get_object_size(item) for item in obj)
-
-    return size
-
-
-def transform_es_return_format(hit_item):
-    """
-    Turn the original output data format to a more simple one, which only includes "tmark-name",
-    “appl-no”, “CNS-COMPONENTS” in 'source'.
-    """
-    return (
-        hit_item["_source"]["tmark-name"],
-        hit_item["_source"]["appl-no"],
-        tuple(hit_item["_source"]["CNS_COMPONENTS"]),
-    )
-
-
+# TODO: will be removed
 def toComponents(trademarkName, df=df):
     """算出商標名稱每個字的 components 組成的 list"""
     targetTM = trademarkName
@@ -84,7 +51,7 @@ def toComponents(trademarkName, df=df):
                 pass
     return targetTMComponentsList
 
-
+# TODO: will be removed
 def intersection_list(list_1, list_2):
     """找兩個 component list 的交集"""
     list1 = list_1.copy()
@@ -153,7 +120,7 @@ def travel_es(es, result_list, **kwargs):
     print("總查詢資料筆數:", total_size)
     return total_size
 
-
+#TODO: rename it text_search() since the process will not only include es search
 def esQuery(
     searchKeywords="",
     isImageSearchFilter=False,
