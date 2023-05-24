@@ -92,5 +92,3 @@ def get_glyph_vector(trademarkName):
     targetTMComponentsList.extend([0] * (maxD - len(targetTMComponentsList)))
 
     return targetTMComponentsList
-
-get_glyph_vector("海")
