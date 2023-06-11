@@ -24,7 +24,7 @@ def search(nprobe=100, target='', collection=Collection):
             data=[pinyin_vector], 
             anns_field="vector", 
             param=search_params,
-            limit=16383, 
+            limit=10000, 
             expr=f"length == {length}",
             output_fields=['appl_no'], # set the names of the fields you want to retrieve from the search result.
             consistency_level="Strong"

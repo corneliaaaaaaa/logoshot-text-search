@@ -222,8 +222,7 @@ def esQuery(mode, length = 0, target_tmNames="", target_id_list = [], return_siz
         queryResultsCNT = travel_es(es, resultsAAA, return_size, index="logoshot2022", body=query_body)
         resultsAAA = [(item[0], item[1]) for item in resultsAAA] 
     et = time.time()
-    print("esQuery done, time used:", et-st)
-    print(len(resultsAAA), "records in total")
+    print("esQuery done, time used:", et-st, len(resultsAAA), "records in total")
 
     return resultsAAA
 

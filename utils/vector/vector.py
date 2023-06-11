@@ -11,7 +11,7 @@ import os
 
 pinyinDim = 5
 glyphDim = 517
-maxDim = 30000
+maxDim = 300
 
 doubleConsonantsMap = {}
 doubleVowelsMap = {}
@@ -53,7 +53,7 @@ def get_pinyin_vector(utterance1, pinyin=False, unit = False):
     return pinyin_vector
 
 def chinese_length_pinyin(targetTM):
-    pinyin_vector = get_pinyin(targetTM)
+    pinyin_vector = get_pinyin_vector(targetTM)
     length = int(len(pinyin_vector) / pinyinDim)
     pinyin_vector = pinyin_vector + [0] * (maxDim - len(pinyin_vector))
     return length, pinyin_vector
