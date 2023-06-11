@@ -9,17 +9,31 @@ from utils.vector.pinyin.utils import *
 from pypinyin import pinyin, lazy_pinyin, Style
 import os
 
-maxD = 30000
+pinyinDim = 5
+glyphDim = 517
+maxDim = 30000
+
 doubleConsonantsMap = {}
 doubleVowelsMap = {}
 
 pinyin_to_simplified = load_pinyin_to_simplified()
 pinyin_to_traditional = load_pinyin_to_traditional()
 
-def get_pinyin_vector(utterance1, pinyin=False):
+curr_dir, _ = os.path.split(__file__)
+root_dir, _ = os.path.split(curr_dir)
+DATA_PATH = os.path.join(root_dir, "vector/glyph", "CNS_SUMMARY_TABLE.csv")
+df = pd.read_csv(DATA_PATH)
+df = df[df['TEXT'] != '###']    
+component_id_set = set()
+for index, row in df.iterrows():
+    for c in re.split(',|;', row['COMPONENTS']):
+        component_id_set.add(int(c))
+print("load CNS summary table done")
+
+def get_pinyin_vector(utterance1, pinyin=False, unit = False):
     utterance1 = re.sub(r"[^\u4e00-\u9fa5]", "", utterance1)
     if not pinyin:
-        u1 = to_pinyin(utterance1)
+        u1 = to_pinyin(utterance1) 
     la = []
     for py in u1:
         la.append(Pinyin(py))
@@ -29,39 +43,45 @@ def get_pinyin_vector(utterance1, pinyin=False):
         if apy is None:
             raise Exception("!Empty Pinyin {},{}".format(la))
         consonant_i, vowel_i = get_edit_distance_close_2d_code(apy)
-        if(consonant_i == (99999.0, 99999.0)):
-            consonant_i = (0,0)
-        pinyin_vector.extend(list(consonant_i))
-        pinyin_vector.extend(list(vowel_i))
-        pinyin_vector.extend([apy.tone/10])
+        word_list = []
+        word_list.extend(list(consonant_i))
+        word_list.extend(list(vowel_i))
+        word_list.extend([apy.tone/10])
+        word_list = word_list / np.linalg.norm(word_list)  
+        word_list = word_list / math.sqrt(len(utterance1))
+        pinyin_vector.extend(word_list)
     return pinyin_vector
-
 
 def chinese_length_pinyin(targetTM):
     pinyin_vector = get_pinyin(targetTM)
-    length = int(len(pinyin_vector) / 5)
-    pinyin_vector = pinyin_vector + [0] * (maxD - len(pinyin_vector))
+    length = int(len(pinyin_vector) / pinyinDim)
+    pinyin_vector = pinyin_vector + [0] * (maxDim - len(pinyin_vector))
     return length, pinyin_vector
 
 def chinese_length_glyph(targetTM):
     glyph_vector = get_glyph_vector(targetTM)
-    length = int(len(glyph_vector) / 517)
-    glyph_vector = glyph_vector + [0] * (maxD - len(glyph_vector))
+    length = int(len(glyph_vector) / glyphDim)
+    glyph_vector = glyph_vector + [0] * (maxDim - len(glyph_vector))
     return length, glyph_vector
 
-def get_glyph_vector(trademarkName):
-    """ 算出商標名稱每個字的 components 組成的 list """
-    # create component id set
-    curr_dir, _ = os.path.split(__file__)
-    root_dir, _ = os.path.split(curr_dir)
-    DATA_PATH = os.path.join(root_dir, "vector/glyph", "CNS_SUMMARY_TABLE.csv")
-    df = pd.read_csv(DATA_PATH)
-    df = df[df['TEXT'] != '###']    
-    component_id_set = set()
-    for index, row in df.iterrows():
-        for c in re.split(',|;', row['COMPONENTS']):
-            component_id_set.add(int(c))
+def unit_pinyin(targetTM):
+    d = {}
+    word = re.sub(r"[^\u4e00-\u9fa5]", "", targetTM)
+    for w in word:
+        pinyin_vector = get_pinyin(w)
+        d[w] = pinyin_vector
+    return d
 
+def unit_glyph(targetTM):
+    d = {}
+    word = re.sub(r"[^\u4e00-\u9fa5]", "", targetTM)
+    for w in word:
+        glyph_vector = get_glyph_vector(w)
+        d[w] = glyph_vector
+    return d
+
+def get_glyph_vector(trademarkName, component_id_set = component_id_set):
+    """ 算出商標名稱每個字的 components 組成的 list """
     # create component mapping dictionary (define the dimension id of the component )
     component_mapping_dict = {}
     for i in range(len(component_id_set)):
@@ -71,7 +91,7 @@ def get_glyph_vector(trademarkName):
     targetTM = trademarkName
     targetTMComponentsList = []
     try:
-        targetTM = re.sub(r"[^\u4e00-\u9fa5]", "", targetTM)   # 商標名稱只保留中文 TODO: maybe remove
+        targetTM = re.sub(r"[^\u4e00-\u9fa5]", "", targetTM)   # 商標名稱只保留中文
     except:
         pass
     if targetTM:
@@ -87,8 +107,4 @@ def get_glyph_vector(trademarkName):
                     targetTMComponentsList.append(i)
             except:
                 pass
-    
-    # fill in 0s to make the vector of 30000 dimensions
-    targetTMComponentsList.extend([0] * (maxD - len(targetTMComponentsList)))
-
     return targetTMComponentsList
