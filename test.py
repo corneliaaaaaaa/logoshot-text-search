@@ -50,7 +50,7 @@ test_cases = [
     "柏克萊", "傅各萊",	"博客來書店", "博客",
     "愛爾達", "愛爾達網路",	"愛爾韃", "矮二大典施",
     "五人格", "地五人格", "第八人格", "地武個人格",	"五個人格",
-    "一芳水果茶", "一芳飲料店",	"在水一方",	"一方",	"一杯芳"
+    "一芳水果茶", "一芳飲料店",	"在水一方",	"一方",	"一杯芳",
     "普悠瑪列車", "譜攸馬", "樸悠瑪", "圃優馬航班",
     "國巨匠", "國超巨",	"摑拒",	"國巨企業",	"國劇",
     "胖老爹美式炸雞", "胖爹爹",	"旁烙跌", "胖胖老爹", "胖佬爹",
@@ -72,8 +72,9 @@ answer_cnt = [
     6, 5, 4, 4, 4, 4, 4, 4, 5, 4,
     3, 4, 4, 4, 4, 4, 5, 4, 4, 4,
     5, 4, 4, 5, 5, 4, 5, 5, 3, 3,
-    4, 4, 2 #TODO
+    4, 4, 3
 ]
+
 answer_list = []
 pass_or_fail = [False] * len(test_cases)
 caseType_list = [""] * len(test_cases)
@@ -82,10 +83,6 @@ time_list = [0] * len(test_cases)
 for i in range(len(answer_set)):
     tmp = [answer_set[i]] * answer_cnt[i]
     answer_list.extend(tmp)
-
-print(answer_list)
-print(len(answer_list))
-print(len(test_cases))
 
 for i in range(len(test_cases)):
     results, in_top_ten, caseType, time = text_search(glyph=False, pinyin=True, target_tmNames=test_cases[i])
@@ -102,4 +99,5 @@ test_df = pd.DataFrame({
     "time used": time_list,
 })
 
-test_df.to_csv(f"/home/ericaaaaaaa/logoshot/data/test_results/v1_pinyin_0611_{accuracy: .3f}.csv")
+test_df.to_csv(f"/home/ericaaaaaaa/logoshot/data/test_results/v1_pinyin_0611_{accuracy: .3f}.csv", index=False)
+# test_df.to_csv(f"/home/ericaaaaaaa/logoshot/data/test_results/tmp.csv")

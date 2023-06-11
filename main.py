@@ -66,7 +66,7 @@ def text_search(
     output
     - final_result: list, 儲存符合條件的商標的 document
     """
-    milvus_threshold = 0.9   # the threshold to decide whether we only need to run milvus
+    milvus_threshold = 0.95   # the threshold to decide whether we only need to run milvus
     sms_threshold = 0.5
     es_return_size = 5000
     sms_return_size = 1000
