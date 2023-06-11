@@ -17,6 +17,7 @@ def get_object_size(obj):
 
     return size
 
+
 def transform_es_return_format(hit_item):
     """
     Turn the original output data format to a more simple one, which only includes "tmark-name",

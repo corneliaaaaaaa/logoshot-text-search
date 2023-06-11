@@ -263,7 +263,7 @@ class SequenceMatcher:
         self.b = b
         self.matching_blocks = self.opcodes = None
         self.fullbcount = None
-        self.__chain_b()
+        # self.__chain_b()
 
     # For each element x in b, set b2j[x] to a list of the indices in
     # b where x appears; the indices are in increasing order; note that
@@ -281,6 +281,7 @@ class SequenceMatcher:
     # kinds of matches, it's best to call set_seq2 once, then set_seq1
     # repeatedly
 
+    """
     def __chain_b(self):
         # Because isjunk is a user-defined (not C) function, and we test
         # for junk a LOT, it's important to minimize the number of calls.
@@ -319,7 +320,7 @@ class SequenceMatcher:
                     popular.add(elt)
             for elt in popular:  # ditto; as fast for 1% deletion
                 del b2j[elt]
-
+    """
     def find_longest_match(self, alo=0, ahi=None, blo=0, bhi=None):
         """Find longest matching block in a[alo:ahi] and b[blo:bhi].
 
@@ -378,11 +379,11 @@ class SequenceMatcher:
         # Windiff ends up at the same place as diff, but by pairing up
         # the unique 'b's and then matching the first two 'a's.
 
-        a, b, b2j, isbjunk, threshold, glyph = (
+        a, b, threshold, glyph = (
             self.a,
             self.b,
-            self.b2j,
-            self.bjunk.__contains__,
+            # self.b2j,
+            #self.bjunk.__contains__,
             self.threshold,
             self.glyph,
         )
@@ -397,6 +398,8 @@ class SequenceMatcher:
         j2score = {}
         j2len = {}
         nothing = []
+        j_beginning = blo #TODO: refactor
+        
         for i in range(alo, ahi):
             # look at all instances of a[i] in b; note that because
             # b2j has no junk keys, the loop is skipped if a[i] is junk
@@ -404,17 +407,16 @@ class SequenceMatcher:
             newj2score = {}
             j2lenget = j2len.get
             newj2len = {}
-            for j in range(blo, bhi):
+            for j in range(j_beginning, bhi):
+                similarity = compute_similarity(a[i], b[j])
                 # if a[i] is similar to b[j] enough
-                if compute_similarity(a[i], b[j], glyph) > threshold:
+                if similarity >= threshold:
                     if j < blo:
                         continue
                     if j >= bhi:
                         break
                     k = newj2len[j] = j2lenget(j - 1, 0) + 1
-                    s = newj2score[j] = j2scoreget(j - 1, 0) + compute_similarity(
-                        a[i], b[j], glyph
-                    )
+                    s = newj2score[j] = j2scoreget(j - 1, 0) + similarity
                     if s > bestscore:
                         besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
             j2len = newj2len
