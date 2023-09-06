@@ -32,30 +32,6 @@ for index, row in df.iterrows():
         component_id_set.add(int(c))
 print("load CNS summary table done")
 
-"""
-def get_pinyin_vector(utterance1, pinyin=False, unit = False):
-    # cosine similarity
-    utterance1 = re.sub(r"[^\u4e00-\u9fa5]", "", utterance1)
-    if not pinyin:
-        u1 = to_pinyin(utterance1) 
-    la = []
-    for py in u1:
-        la.append(Pinyin(py))
-    pinyin_vector = []
-    for i in range(len(utterance1)):
-        apy = la[i]
-        if apy is None:
-            raise Exception("!Empty Pinyin {},{}".format(la))
-        consonant_i, vowel_i = get_edit_distance_close_2d_code(apy)
-        word_list = []
-        word_list.extend(list(consonant_i))
-        word_list.extend(list(vowel_i))
-        word_list.extend([apy.tone/10])
-        word_list = word_list / np.linalg.norm(word_list)  
-        word_list = word_list / math.sqrt(len(utterance1))
-        pinyin_vector.extend(word_list)
-    return pinyin_vector
-"""
 def chinese_length_pinyin(targetTM: str=""):
     """
     Get both the length and pinyin vector of the trademark name.
