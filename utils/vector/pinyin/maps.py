@@ -33,7 +33,7 @@ consonantMap_TwoDCode ={
     "y":(40.0,0.0), 
     "w":(40,5.0),
     
-    "":(99999.0,99999.0)
+    "":(0.0,0.0)
 }
 
 vowelMap_TwoDCode = {
@@ -101,7 +101,7 @@ vowelMap_TwoDCode = {
 
     "u":(80,0.0),
 
-    "":(99999.0,99999.0)
+    "":(0.0, 0.0)
 }
 
 consonantList = ["b", "p", "m", "f", "d", "t", "n", "l", "g", "k","h", "j", "q", "x", "zh", "ch", "sh", "r", "z", "c", "s","y", "w"]

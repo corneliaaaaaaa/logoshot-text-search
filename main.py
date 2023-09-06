@@ -1,16 +1,17 @@
-from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
 import json
 import pandas as pd
 import re
 import time
-from datetime import datetime
-from utils.utils import get_object_size, transform_es_return_format
-from utils.sequence_matcher_scoring import sequence_matcher_scoring
-from utils.es_search import esQuery
-from utils.milvus import connect_to_milvus, get_collection, search
 import warnings
-from pymilvus import connections, Collection
+from datetime import datetime
+from pymilvus import connections, Collection, utility
+from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
+from utils.utils import get_object_size, transform_es_return_format, keyword_preprocess, sum_scores
+from utils.sms.sequence_matcher_scoring import sequence_matcher_scoring
+from utils.es_search import esQuery, get_final_result
+from utils.milvus import connect_to_milvus, get_collection, search
+from memory_profiler import profile
 
 warnings.simplefilter("ignore") # TODO: remove
 
@@ -26,21 +27,23 @@ es = Elasticsearch(
     # ignore=[400, 405, 502],  # 以列表的形式忽略多個狀態碼
     # http_auth=('elastic', 'changeme')  # 認證資訊
 )
-# 下面兩行只有一開始要跑一次 TODO: here?
+
+# milvus TODO: only need to load once
 connect_to_milvus()
-collection = get_collection('pinyin_embedding_300')
+# collection = get_collection('pinyin_embedding_300')
+# collection.release()
+# collection = get_collection('pinyin_embedding_300_L2')
+ll = utility.list_collections()
+for c in ll:
+    collection = Collection(c)
+    collection.release()
+
+# collection = get_collection('glyph_embedding_3619_no_length')
+collection = get_collection('pinyin_embedding_300_L2')
 
 df = pd.read_csv("/home/ericaaaaaaa/logoshot/data/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 
-def keyword_preprocess(searchKeywords):
-    """
-    將關鍵詞中的多個空格替代為一個空格，並將字串中由空格隔開的詞拆開，組成 list。
-    """
-    keyword = re.sub(" +", " ", searchKeywords).strip()
-    keywords_list = keyword.split()
-
-    return keywords_list
-
+# @profile
 def text_search(
     glyph=False,
     pinyin=False,
@@ -54,24 +57,36 @@ def text_search(
     target_startTime="",
     target_endTime="",
     es=es,
+    correct_ans="", #TODO: will be removed
 ):
     """
-    執行文字搜尋的完整流程，輸入各式條件後，最終將依據分數排序，回傳符合條件的結果，。
-
+    Execute the complete process of text searching. The process includes:
+    - compute the score of each trademark according to the criteria
+    - sum the score of each trademark obtained from different data source,
+      such as milvus, elastic search and sequence_matcher_scoring
+    - sort trademarks based on the score
+    - return the trademarks with the highest sum_scores
+    
     ===
     input
-    - 關鍵詞: searchKeywords, target_draft_c,...
-    - 是否選擇音近字/形近字搜尋: isSimSound, isSimShape
-    - es
+    - target_tmNames, target_draft_c, ...: search criterias targeted by users
+    - glyph: whether the searching needs to consider glyph similarity
+    - pinyin: whether the searching needs to consider sound similarity
+    - es: elastic search
     output
-    - final_result: list, 儲存符合條件的商標的 document
+    - final_result: a list which consists of all trademark documents which
+      matches the criteria
     """
-    milvus_threshold = 0.95   # the threshold to decide whether we only need to run milvus
-    sms_threshold = 0.5
-    es_return_size = 5000
+    milvus_threshold = -10   # the threshold to decide whether we only need to run milvus
+    str_mode = "音"
+    if glyph:
+        milvus_threshold = 0.7
+        str_mode = "形"
+    sms_threshold = 0.7
+    es_return_size = 1000
     sms_return_size = 1000
     milvus_key_index = 0   # if score of that index > threshold, there's no need for further searching
-    data_shown = 10
+    data_shown = 10   # also top #
     target_id_list = []
     results_id_list = []
     results = []
@@ -81,24 +96,24 @@ def text_search(
     same_length_results = []
     different_length_results = []
     final_results = []
+    weight = 1
+    nprobe = 1000
+    # variables for testing TODO: will be removed
     map_tmName = True
-    # variables for testing
-    in_top_ten = False
+    in_top = 99999
     caseType = ""
 
     # preprocess
-    target_tmName_list = keyword_preprocess(target_tmNames)
-    target_tmName = target_tmName_list[0]
+    target_tmName = keyword_preprocess(target_tmNames) #TODO    
     
     st = time.time()
 
-    # 嚴格搜尋
+    # strict search
     if target_tmNames != "" and glyph == False and pinyin == False:
         print("mode: 嚴格搜尋")
         es_results = esQuery(
             es=es,
             mode="strict",
-            target_id_list=target_id_list,
             target_tmNames=target_tmNames,
             target_draft_c=target_draft_c,
             target_draft_e=target_draft_e,
@@ -109,19 +124,24 @@ def text_search(
             target_startTime=target_startTime,
             target_endTime=target_endTime,
             return_size=es_return_size,
-            length=0,
         )
         results = es_results
         map_tmName = False
+        caseType = "嚴格搜尋"
     # 形近 / 音近搜尋
     else:
         # milvus query
-        milvus_results = search(nprobe=100, target=target_tmName, collection=collection)
-        print("milvus_results", milvus_results[:5])
-
-        # 判斷是否需要進行更多搜尋 
+        if pinyin:
+            milvus_results = search(nprobe=nprobe, target=target_tmName, collection=collection, type="L2")
+        else:
+            milvus_results = search(nprobe=nprobe, target=target_tmName, collection=collection, type="IP")
+        print("milvus_results", milvus_results[:data_shown])
+        milvus_time = time.time() - st
+        print("---milvus done", milvus_time)
+        
+        # check if we need to search through other data sources (when there are
+        # other search criteria, or when the top score of milvus results is low)
         if milvus_results[milvus_key_index][1] > milvus_threshold:
-            caseType = "只進 milvus"
             if (
             target_draft_c != ""
             or target_draft_e != ""
@@ -132,17 +152,15 @@ def text_search(
             or target_startTime != ""
             or target_endTime != ""
             ):
-                print("mode: 音近搜尋、有其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
-                # filter ids with score > milvus_threshold
-                target_id_list = list(map(lambda x: x[0], filter(lambda x: x[1] > milvus_threshold, milvus_results)))
-                # print("target_id_list", target_id_list[:data_shown])
+                print(f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
+                target_id_list = [appl_no for appl_no, score in milvus_results]
                 
-                # 用 id list 和其他條件進行 es search
+                # elastic search by id list from milvus and other search criteria
                 es_results = esQuery(
                     es=es,
                     mode="same",
                     target_id_list=target_id_list,
-                    target_tmNames=target_tmNames,
+                    # target_tmNames=target_tmNames,
                     target_draft_c=target_draft_c,
                     target_draft_e=target_draft_e,
                     target_draft_j=target_draft_j,
@@ -152,16 +170,21 @@ def text_search(
                     target_startTime=target_startTime,
                     target_endTime=target_endTime,
                     return_size=es_return_size,
-                    length=0,
                 )
-                results = es_results
-                map_tmName = False
+                es_time = time.time() - milvus_time
+                print("---es done", es_time)
+                
+                # sum es score and milvus score
+                results = sum_scores(milvus_results, es_results, False)
+                sum_time = time.time() - es_time - milvus_time
+                print("---sum score done", time.time() - st)
+
+                caseType = "milvus (> threshold) + es (other filter)"
             else:
-                print("mode: 音近搜尋、無其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
+                print(f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
                 results = milvus_results     
-                caseType = 2    
+                caseType = "milvus (> threshold)"
         else:
-            caseType = "有進 es search"
             if (
                 target_draft_c != ""
                 or target_draft_e != ""
@@ -172,15 +195,89 @@ def text_search(
                 or target_startTime != ""
                 or target_endTime != ""
             ):
-                print("mode: 音近搜尋、有其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
-                # 針對長度相同的商標名稱
-                # 取得這些商標名稱在其他條件中的 es search 得分
+                print(f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
+                # deal with trademarks of the same length as the keyword
+                # elastic search by other search criteria
                 target_id_list = list(map(lambda x: x[0], milvus_results))
-                # print("target_id_list", target_id_list[:data_shown])
                 es_results = esQuery(
                     es=es,
                     mode="same",
                     target_id_list=target_id_list,
+                    # target_tmNames=target_tmNames,
+                    target_draft_c=target_draft_c,
+                    target_draft_e=target_draft_e,
+                    target_draft_j=target_draft_j,
+                    target_classcodes=target_classcodes,
+                    target_color=target_color,
+                    target_applicant=target_applicant,
+                    target_startTime=target_startTime,
+                    target_endTime=target_endTime,
+                    return_size=es_return_size,
+                )
+                print("es_results", es_results[:data_shown])
+                es_time_same = time.time() - milvus_time
+                print("---es done", es_time)
+                
+                # sum es score and milvus score
+                same_length_results = sum_scores(milvus_results, es_results, False)
+                print("same_length_results", same_length_results[:data_shown])
+                sum_time_same = time.time() - es_time - milvus_time
+                print("---sum score done", sum_time)
+
+                # deal with trademarks of different length from the keyword
+                # elastic search by other search criteria
+                es_results = esQuery(
+                    es=es,
+                    mode="different_score",
+                    # target_tmNames=target_tmNames,
+                    target_draft_c=target_draft_c,
+                    target_draft_e=target_draft_e,
+                    target_draft_j=target_draft_j,
+                    target_classcodes=target_classcodes,
+                    target_color=target_color,
+                    target_applicant=target_applicant,
+                    target_startTime=target_startTime,
+                    target_endTime=target_endTime,
+                    return_size=es_return_size,
+                    length=len(target_tmName),
+                )
+                print("es_results", es_results[:data_shown])
+                es_time_diff = time.time() - es_time_same - sum_time_same - milvus_time
+                print("---es done", es_time_diff)
+
+                # get the id and trademark
+                es_results_id = [appl_no for appl_no, tmName, score in es_results]
+                es_results_tmName = [tmName for appl_no, tmName, score in es_results]
+                
+                # sequence matcher scoring
+                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmName, sms_threshold, glyph)
+                sms_time = time.time() - es_time_diff - es_time_same - sum_time_same - milvus_time
+                print("---sms done", sms_time)
+
+                # weight milvus results        
+                if not glyph:        
+                    # weight = (-1) * milvus_results[0][1] / sms_results[0][1]
+                    weight = milvus_results[0][1] / (1 - sms_results[0][1]) #TODO: there's bug if sms = 1
+                    sms_results = [(appl_no, (1 - score) * weight) for appl_no, score in sms_results]
+                else:
+                    sms_results = [(appl_no, score * weight) for appl_no, score in sms_results]
+
+                # sum es score and sms score
+                different_length_results = sum_scores(sms_results, es_results, False)
+                print("different_length_results", different_length_results[:data_shown])
+                sum_time_diff = time.time() - sms_time - es_time_diff - es_time_same - sum_time_same - milvus_time
+                print("---sum score done", sum_time_diff)
+
+                # combine results of trademarks of same and different length
+                results.extend(same_length_results)
+                results.extend(different_length_results)
+                caseType = "milvus (< threshold) + es (other filter) + sms"
+            else:
+                print(f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
+                # elastic search to get trademarks of different length from the keyword
+                es_results = esQuery(
+                    es=es,
+                    mode="different",
                     target_tmNames=target_tmNames,
                     target_draft_c=target_draft_c,
                     target_draft_e=target_draft_e,
@@ -191,93 +288,36 @@ def text_search(
                     target_startTime=target_startTime,
                     target_endTime=target_endTime,
                     return_size=es_return_size,
-                    length=0,
                 )
                 print("es_results", es_results[:data_shown])
-                
-                # 加總 es score 和 milvus score
-                same_length_results = [
-                    (appl_no, milvus_score + es_score)
-                    for (appl_no, milvus_score), (appl_no, tmName, es_score) in zip(milvus_results, es_results)
-                ]
-                print("same_length_results", same_length_results[:data_shown])
-                print()
+                es_time = time.time() - milvus_time
+                print("---es done", es_time)
 
-                # 針對長度不同的商標名稱
-                # 進行其他條件的 es search，取得前 5000 筆
-                es_results = esQuery(
-                    es=es,
-                    mode="different_score",
-                    target_id_list=target_id_list,
-                    target_tmNames="",
-                    target_draft_c=target_draft_c,
-                    target_draft_e=target_draft_e,
-                    target_draft_j=target_draft_j,
-                    target_classcodes=target_classcodes,
-                    target_color=target_color,
-                    target_applicant=target_applicant,
-                    target_startTime=target_startTime,
-                    target_endTime=target_endTime,
-                    return_size=es_return_size,
-                    length=len(target_tmName),
-                )
-                print("es_results", es_results[:data_shown])
-
-                # 只取出 id 和商標名稱
-                es_results_id = [appl_no for appl_no, tmName, score in es_results]
-                es_results_tmName = [tmName for appl_no, tmName, score in es_results]
+                # get the id and trademark name TODO
+                # es_results_id = [appl_no for appl_no, tmName, score in es_results]
+                # es_results_tmName = [tmName for appl_no, tmName, score in es_results]
+                es_results_id = [appl_no for appl_no, tmName in es_results]
+                es_results_tmName = [tmName for appl_no, tmName in es_results]
                 
-                # 對前 5000 筆資料進行 sequence_matcher_scoring()
+                # sequence matcher scoring
                 sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmName, sms_threshold, glyph)
                 print("sms_results", sms_results[:data_shown])
+                sms_time = time.time() - es_time - milvus_time
+                print("---sms done", sms_time)
 
-                # 加總 es score 和 sms score
-                different_length_results = [
-                    (appl_no, sms_score + es_score)
-                    for (appl_no, sms_score), (appl_no, tmName, es_score) in zip(sms_results, es_results)
-                ]
-                print("different_length_results", same_length_results)
+                # weight milvus results
+                if not glyph:
+                    # weight = (-1) * milvus_results[0][1] / sms_results[0][1] TODO
+                    weight = milvus_results[0][1] / (1 - sms_results[0][1])
+                # sms_results = [(appl_no, score * weight) for appl_no, score in sms_results]
+                    sms_results = [(appl_no, (1 - score) * weight) for appl_no, score in sms_results]
+                else:
+                    sms_results = [(appl_no, score * weight) for appl_no, score in sms_results]
 
-                # 合併長度相同與長度不同的結果，並排序
-                results.extend(same_length_results)
-                results.extend(different_length_results)
-                results = sorted(results, key= lambda x: x[1], reverse=True)
-            else:
-                print("mode: 音近搜尋、無其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
-                # 進行 es search，取得所有長度不同的商標之 id、商標名稱
-                es_results = esQuery(
-                    es=es,
-                    mode="different",
-                    target_id_list=target_id_list,
-                    target_tmNames="",
-                    target_draft_c=target_draft_c,
-                    target_draft_e=target_draft_e,
-                    target_draft_j=target_draft_j,
-                    target_classcodes=target_classcodes,
-                    target_color=target_color,
-                    target_applicant=target_applicant,
-                    target_startTime=target_startTime,
-                    target_endTime=target_endTime,
-                    return_size=es_return_size,
-                    length=len(target_tmName),
-                )
-                print("es_results", es_results[:data_shown])
-
-                # 只取出 id 和商標名稱
-                partial = 500000
-                es_results_id = [appl_no for appl_no, tmName in es_results[:partial]]
-                es_results_tmName = [tmName for appl_no, tmName in es_results[:partial]]
-                
-                # 對所有資料進行 sequence_matcher_scoring()
-                sms_st = time.time()
-                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmName, sms_threshold, glyph)
-                print("sms_results", sms_results[:data_shown])
-                sms_et = time.time()
-                print("sms time used", et - st)
-
-                # 合併長度相同與長度不同的結果，並排序
+                # combine results of trademarks of same and different length
                 results.extend(milvus_results)
                 results.extend(sms_results[:sms_return_size])
+                caseType = "milvus (< threshold) + es (only query) + sms"      
     
     # sort results by score
     results = sorted(results, key= lambda x: x[-1], reverse=True)
@@ -288,41 +328,42 @@ def text_search(
     
     # check results (TODO: will be removed)
     if map_tmName:
-        results_id_list = [appl_no for appl_no, tmName in results]
+        results_id_list = [appl_no for appl_no, tmName in results[:data_shown]] #TODO here
         check_results = esQuery(
             es=es,
             mode="same",
             target_id_list=results_id_list,
             return_size=es_return_size,
         )
-        print("results", results[:2])
-        print("check results", check_results[:2])
-        check_results = [
-            (appl_no, tmName, score1)
-            for (appl_no, score1), (appl_no, tmName, score2) in zip(results, check_results)
-        ]
-        print("results")
+        check_results = sum_scores(results, check_results, True)
+        print("map_tmName results")
         print(check_results[:data_shown])
 
-        # check if target in top ten
-        for r in check_results:
-            if target_tmName == r[1]:
-                in_top_ten = True
-                print(r)
-                break
+        # check if target in top hits
+        for r in check_results[:data_shown]:
+            if correct_ans == r[1]:
+                print("correct!")
+                if r[0] in results_id_list:
+                    in_top = results_id_list.index(r[0]) + 1
+                    break
     else:
-        print("results")
+        print("!map_tmName results")
         print(results[:data_shown])
         
+        results_id_list = [appl_no for appl_no, tmName, score in results[:data_shown]] #TODO here
         # check if target in top ten
-        for r in results:
-            if target_tmName == r[1]:
-                in_top_ten = True
-                print(r)
-                break
+        for r in results[:data_shown]:
+            if correct_ans == r[1]:
+                print("correct!")
+                print("result id", results_id_list[:5])
+                if r[0] in results_id_list:
+                    in_top = results_id_list.index(r[0]) + 1
+                    break
     
     # query full document of each result
     if results_id_list != []:
-        final_results = es.mget(index="logoshot2022", body={"ids": results_id_list})["docs"]
+        final_results = get_final_result(es, results_id_list)
+    else:
+        final_results = results
 
-    return final_results, in_top_ten, caseType, et - st # some outputs just for tests TODO
+    return final_results, in_top, caseType, et - st # some outputs just for tests TODO
