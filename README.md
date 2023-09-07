@@ -10,4 +10,4 @@ The backend of Logoshot can be separated into the following two components.
 * Image recognition: allows users to take a photo of a logo, and the system will return trademarks which looks like the image.
 * Text search: allows users to input a keyword and other search criteria of the trademark, and the system will return trademarks which are both similar to the keyword and matches the search criteria.
 
-This repository mainly contains the text search component of Logoshot's backend.
+This repository mainly contains the **text search** component of Logoshot's backend.
