@@ -22,7 +22,7 @@ if glyph:
     if same_length:
         length_mode = ["形近(長度同)"] 
     else:
-        length_mode = ["形近(長度同)", "形近(長度不同)"] 
+        length_mode = ["形近(長度同)", "形近(長度不同)"]
 else:
     if same_length:
         length_mode = ["音近(長度同)"] 

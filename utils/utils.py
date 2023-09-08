@@ -45,7 +45,7 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
     """
     tmName_dict = {}
     score_dict = {}
-    target_appl = "105044928" #TODO: remove
+    target_appl = "109086061" #TODO: remove
     once = False
 
     # calculate the sums
@@ -55,9 +55,19 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
             tmName_dict[appl_no] = tmName_dict.get(appl_no, "") + tmName
         else:
             score_dict[appl_no] = score_dict.get(appl_no, 0) + score
+        if appl_no == target_appl:
+            print("hi", appl_no, tmName, score, result2.index((appl_no, tmName, score)))
+            print("eeeeeeeeeeeeee", score_dict.get(appl_no, 0))
+        if score == 0 and once is False :
+            once = True
+            print("!!!!!!!!!!!!!!!!!!!!! index !!!!!!!!!!!!!", result2.index((appl_no, tmName, score)))
 
     for appl_no, score in result1:
         score_dict[appl_no] = score_dict.get(appl_no, 0) + score
+        if appl_no == target_appl:
+            print("hi", appl_no, score)
+            print("ooooooooooooo", score_dict.get(appl_no, 0))
+
 
     # create a list of tuples with the sums
     if showName:

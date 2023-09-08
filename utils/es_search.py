@@ -241,8 +241,8 @@ def esQuery(mode, length = 0, target_tmNames="", target_id_list = [], return_siz
                 }
             })
         query_body_length = {"query": {"bool": {"filter":{"bool": {"must": {"terms": {"length": [length+2,length-2]}}}}}}}
-        queryResultsCNT = travel_es(es, unionAAA_length, return_size, index="logoshot2022", body=query_body_length)
-        queryResultsCNT = travel_es(es, unionAAA_word, return_size, index="logoshot2022", body=query_body_word)
+        queryResultsCNT = travel_es(es, unionAAA_length, return_size / 2, index="logoshot2022", body=query_body_length)
+        queryResultsCNT = travel_es(es, unionAAA_word, return_size / 2, index="logoshot2022", body=query_body_word)
         unionAAA_word = [(item[0], item[1]) for item in unionAAA_word] 
         unionAAA_length = [(item[0], item[1]) for item in unionAAA_length] 
         unionAAA_word.extend(unionAAA_length)
