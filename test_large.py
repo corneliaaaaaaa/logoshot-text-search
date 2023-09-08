@@ -3,8 +3,8 @@ import pandas as pd
 from datetime import datetime
 import time
 
-pinyin = True
-glyph = False
+pinyin = False
+glyph = True
 constraints_mode = False
 same_length = False
 
@@ -22,7 +22,7 @@ if glyph:
     if same_length:
         length_mode = ["形近(長度同)"] 
     else:
-        length_mode = ["形近(長度同)", "形近(長度不同)"]
+        length_mode = ["形近(長度同)", "形近(長度不同)"] 
 else:
     if same_length:
         length_mode = ["音近(長度同)"] 
@@ -30,7 +30,7 @@ else:
         length_mode = ["音近(長度同)", "音近(長度不同)"]
 
 for l in length_mode:
-    for index, row in df[30:45].iterrows():
+    for index, row in df.iterrows():
         test_cases.append(row[l])
         answer_list.append(row["正確答案"])
         print(f"-----------------------start searching {row[l]}------------------------")

@@ -66,6 +66,6 @@ def sequence_matcher_scoring(
     time = datetime.now().strftime("%H%M")
     
     result = list(zip(result_df["appl_no"], result_df["similarity"]))
-    print(result_df)
+    print(result_df[["appl_no", "tmName", "similarity"]])
     
     return result

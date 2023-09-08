@@ -409,7 +409,7 @@ class SequenceMatcher:
             newj2len = {}
             for j in range(j_beginning, bhi):
                 similarity = compute_similarity(a[i], b[j], glyph)
-                print("similarity", i, j, similarity)
+                # print("similarity", i, j, similarity) TODO: remove
                 # if a[i] is similar to b[j] enough
                 if similarity >= threshold:
                     if j < blo:
@@ -418,8 +418,8 @@ class SequenceMatcher:
                         break
                     k = newj2len[j] = j2lenget(j - 1, 0) + 1
                     s = newj2score[j] = j2scoreget(j - 1, 0) + similarity
-                    print("newj2len", newj2len)
-                    print("newj2score", newj2score)
+                    # print("newj2len", newj2len) TODO: remove
+                    # print("newj2score", newj2score)
                     if s > bestscore:
                         besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
             j2len = newj2len
@@ -503,7 +503,7 @@ class SequenceMatcher:
             alo, ahi, blo, bhi = queue.pop()
             x, k = self.find_longest_match(alo, ahi, blo, bhi)
             i, j, s = x
-            print("i j s k", i, j, s, k)
+            # print("i j s k", i, j, s, k) TODO: remove
             # a[alo:i] vs b[blo:j] unknown
             # a[i:i+k] same as b[j:j+k]
             # a[i+k:ahi] vs b[j+k:bhi] unknown
@@ -513,8 +513,8 @@ class SequenceMatcher:
                     queue.append((alo, i, blo, j))
                 if i + k < ahi and j + k < bhi:
                     queue.append((i + k, ahi, j + k, bhi))
-                print("queue", queue) #TODO: remove
-        print("matching blocks", matching_blocks)
+                # print("queue", queue) #TODO: remove
+        # print("matching blocks", matching_blocks) TODO: remove
         matching_blocks.sort()
 
         # It's possible that we have adjacent equal blocks in the

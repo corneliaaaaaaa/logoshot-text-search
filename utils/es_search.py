@@ -248,11 +248,10 @@ def esQuery(mode, length = 0, target_tmNames="", target_id_list = [], return_siz
         unionAAA_word.extend(unionAAA_length)
         resultsAAA = set(unionAAA_word)
 
-    return resultsAAA
+    return list(resultsAAA)
 
 
 # different_score = esQuery(mode = 'different_score', target_applicant="財金文化事業股份有限公司", length = 5)
 # different = esQuery(mode = 'different', length = 5) #目前是預計回傳所有長度不同的字 資料量很大
 # same = esQuery(mode = 'same',  target_applicant="財金文化事業股份有限公司", target_id_list = ["99065347", "98036240", "97015877", "97007426"])
 # strict = esQuery(mode = 'strict', target_tmNames="賓果", target_color="彩色")
-# same = esQuery(mode = 'same',  target_applicant="財金文化事業股份有限公司", target_id_list = ["99065347", "98036240", "97015877", "97007426"])

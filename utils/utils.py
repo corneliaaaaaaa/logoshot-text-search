@@ -1,4 +1,5 @@
 import sys
+import re
 
 def get_object_size(obj):
     """
@@ -44,12 +45,16 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
     """
     tmName_dict = {}
     score_dict = {}
+    target_appl = "105044928" #TODO: remove
+    once = False
 
     # calculate the sums
     for appl_no, tmName, score in result2:
+        # print("hey", appl_no, tmName, score)
         if showName:
             tmName_dict[appl_no] = tmName_dict.get(appl_no, "") + tmName
-        score_dict[appl_no] = score_dict.get(appl_no, 0) + score
+        else:
+            score_dict[appl_no] = score_dict.get(appl_no, 0) + score
 
     for appl_no, score in result1:
         score_dict[appl_no] = score_dict.get(appl_no, 0) + score
@@ -61,3 +66,23 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
         result_list = [(appl_no, score_dict.get(appl_no, 0)) for appl_no in score_dict]
 
     return result_list
+
+def process_results(results):
+    """
+    Sort results by score and filter out the tuples with the same appl_no as others
+    but has a lower score.
+    """
+    highest_scores = {}
+
+    # iterate through the list and update the highest score for each appl_no
+    for appl_no, score in results:
+        if appl_no not in highest_scores or score > highest_scores[appl_no]:
+            highest_scores[appl_no] = score
+
+    # use a list comprehension to filter out tuples with lower scores
+    results = [(appl_no, score) for appl_no, score in results if score == highest_scores[appl_no]]
+
+    # sort results
+    results = sorted(results, key= lambda x: x[-1], reverse=True)
+
+    return results

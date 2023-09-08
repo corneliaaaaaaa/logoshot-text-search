@@ -7,7 +7,7 @@ from datetime import datetime
 from pymilvus import connections, Collection, utility
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
-from utils.utils import get_object_size, transform_es_return_format, keyword_preprocess, sum_scores
+from utils.utils import get_object_size, transform_es_return_format, keyword_preprocess, sum_scores, process_results
 from utils.sms.sequence_matcher_scoring import sequence_matcher_scoring
 from utils.es_search import esQuery, get_final_result
 from utils.milvus import connect_to_milvus, get_collection, search
@@ -36,12 +36,15 @@ connect_to_milvus()
 ll = utility.list_collections()
 for c in ll:
     collection = Collection(c)
+    print("collection", c)
     collection.release()
 
-# collection = get_collection('glyph_embedding_3619_no_length')
-collection = get_collection('pinyin_embedding_300_L2')
+print("collection release done")
+collection = get_collection('glyph_embedding_3619_no_length')
+# collection = get_collection('pinyin_embedding_300_L2')
+print("get collection done")
 
-df = pd.read_csv("/home/ericaaaaaaa/logoshot/data/CNS_SUMMARY_TABLE.csv", encoding="utf8")
+df = pd.read_csv("/home/ericaaaaaaa/logoshot/utils/vector/glyph/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 
 # @profile
 def text_search(
@@ -104,7 +107,7 @@ def text_search(
     caseType = ""
 
     # preprocess
-    target_tmName = keyword_preprocess(target_tmNames) #TODO    
+    target_tmNames = keyword_preprocess(target_tmNames) 
     
     st = time.time()
 
@@ -132,9 +135,9 @@ def text_search(
     else:
         # milvus query
         if pinyin:
-            milvus_results = search(nprobe=nprobe, target=target_tmName, collection=collection, type="L2")
+            milvus_results = search(nprobe=nprobe, target=target_tmNames, collection=collection, type="L2")
         else:
-            milvus_results = search(nprobe=nprobe, target=target_tmName, collection=collection, type="IP")
+            milvus_results = search(nprobe=nprobe, target=target_tmNames, collection=collection, type="IP")
         print("milvus_results", milvus_results[:data_shown])
         milvus_time = time.time() - st
         print("---milvus done", milvus_time)
@@ -171,13 +174,15 @@ def text_search(
                     target_endTime=target_endTime,
                     return_size=es_return_size,
                 )
-                es_time = time.time() - milvus_time
+                print("es results", es_results[:data_shown])
+                es_time = time.time() - milvus_time - st
                 print("---es done", es_time)
                 
                 # sum es score and milvus score
                 results = sum_scores(milvus_results, es_results, False)
-                sum_time = time.time() - es_time - milvus_time
-                print("---sum score done", time.time() - st)
+                print("summed results", results[:data_shown])
+                sum_time = time.time() - es_time - milvus_time - st
+                print("---sum score done", sum_time)
 
                 caseType = "milvus (> threshold) + es (other filter)"
             else:
@@ -215,14 +220,14 @@ def text_search(
                     return_size=es_return_size,
                 )
                 print("es_results", es_results[:data_shown])
-                es_time_same = time.time() - milvus_time
-                print("---es done", es_time)
+                es_time_same = time.time() - milvus_time - st
+                print("---es done", es_time_same)
                 
                 # sum es score and milvus score
                 same_length_results = sum_scores(milvus_results, es_results, False)
                 print("same_length_results", same_length_results[:data_shown])
-                sum_time_same = time.time() - es_time - milvus_time
-                print("---sum score done", sum_time)
+                sum_time_same = time.time() - es_time_same - milvus_time - st
+                print("---sum score done", sum_time_same)
 
                 # deal with trademarks of different length from the keyword
                 # elastic search by other search criteria
@@ -239,10 +244,10 @@ def text_search(
                     target_startTime=target_startTime,
                     target_endTime=target_endTime,
                     return_size=es_return_size,
-                    length=len(target_tmName),
+                    length=len(target_tmNames),
                 )
                 print("es_results", es_results[:data_shown])
-                es_time_diff = time.time() - es_time_same - sum_time_same - milvus_time
+                es_time_diff = time.time() - es_time_same - sum_time_same - milvus_time - st
                 print("---es done", es_time_diff)
 
                 # get the id and trademark
@@ -250,8 +255,8 @@ def text_search(
                 es_results_tmName = [tmName for appl_no, tmName, score in es_results]
                 
                 # sequence matcher scoring
-                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmName, sms_threshold, glyph)
-                sms_time = time.time() - es_time_diff - es_time_same - sum_time_same - milvus_time
+                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmNames, sms_threshold, glyph)
+                sms_time = time.time() - es_time_diff - es_time_same - sum_time_same - milvus_time - st
                 print("---sms done", sms_time)
 
                 # weight milvus results        
@@ -265,7 +270,7 @@ def text_search(
                 # sum es score and sms score
                 different_length_results = sum_scores(sms_results, es_results, False)
                 print("different_length_results", different_length_results[:data_shown])
-                sum_time_diff = time.time() - sms_time - es_time_diff - es_time_same - sum_time_same - milvus_time
+                sum_time_diff = time.time() - sms_time - es_time_diff - es_time_same - sum_time_same - milvus_time - st
                 print("---sum score done", sum_time_diff)
 
                 # combine results of trademarks of same and different length
@@ -290,7 +295,8 @@ def text_search(
                     return_size=es_return_size,
                 )
                 print("es_results", es_results[:data_shown])
-                es_time = time.time() - milvus_time
+                print("es length", len(es_results))
+                es_time = time.time() - milvus_time - st
                 print("---es done", es_time)
 
                 # get the id and trademark name TODO
@@ -300,9 +306,9 @@ def text_search(
                 es_results_tmName = [tmName for appl_no, tmName in es_results]
                 
                 # sequence matcher scoring
-                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmName, sms_threshold, glyph)
+                sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmNames, sms_threshold, glyph)
                 print("sms_results", sms_results[:data_shown])
-                sms_time = time.time() - es_time - milvus_time
+                sms_time = time.time() - es_time - milvus_time - st
                 print("---sms done", sms_time)
 
                 # weight milvus results
@@ -320,8 +326,9 @@ def text_search(
                 caseType = "milvus (< threshold) + es (only query) + sms"      
     
     # sort results by score
-    results = sorted(results, key= lambda x: x[-1], reverse=True)
+    results = process_results(results)
     print("total results:", len(results), "records")
+    print("final results", results[:data_shown])
 
     et = time.time()
     print("text_search time used", et - st)
@@ -329,13 +336,15 @@ def text_search(
     # check results (TODO: will be removed)
     if map_tmName:
         results_id_list = [appl_no for appl_no, tmName in results[:data_shown]] #TODO here
-        check_results = esQuery(
+        tmp = esQuery(
             es=es,
             mode="same",
             target_id_list=results_id_list,
-            return_size=es_return_size,
+            return_size=data_shown * 3,
         )
-        check_results = sum_scores(results, check_results, True)
+        check_results = sum_scores(results, tmp, True)
+        print("check results", check_results[:data_shown])
+        check_results = sorted(check_results, key= lambda x: x[-1], reverse=True)
         print("map_tmName results")
         print(check_results[:data_shown])
 
