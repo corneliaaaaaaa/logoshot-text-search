@@ -1,16 +1,13 @@
 # logoshot-text-search
 
-### difflib_for_comparing_similar_strings.py
-This is a file that is based on the Python library, [difflib](https://github.com/python/cpython/blob/3.11/Lib/difflib.py), but modified to apply similarity comparison between Chinese characters.
+### Introduction of Logoshot
+Logoshot is an application which allows users to find similar trademarks based on multiple criteria, including logo designs, trademark names, application date and other details of logos. It can be used for the following two purposes.
+* Intellectual property management & inspection for the government, attorneys or companies which plan to publish new logos.
+* Simple search engine for the public when they run into a new trademark, but can't remember the exact name of the trademark.
 
-The major difference between this new version of difflib and the original version of difflib from [cpython](https://github.com/python/cpython) is the definition of the matching block. If string $a$ and $b$ are to be compared, a character $a[i]$ in string $a$ will become a part of the matching block if it's similar enough to a character $b[j]$ in string $b$, rather than requiring $a[i]$ to be identical to some $b[j]$. The following bullet points are the changes that are made to the code accordingly.
-- Add similarity score
-	- Since a matching block will be evaluated by using its similarity score, rather than using its size.
-- Add similarity modes: glyph mode and sound(pinyin) mode
-	- Users can define whether they want to compare the strings using the glyph or the sound.
-  - To define the similarity, we use cosine similarity for glyph comparing and Euclidean distance for sound comparing.
-- Add threshold for similarity comparison
-  - If the similarity between two characters, $a[i]$ and $b[j]$, is larger than the threshold, $a[i]$ is then similar enough to $b[j]$.
-- Modify the formula of ratio()
-  - Use the sum of the similarity score of matching blocks to compute  ratio, rather than the size of matching blocks.
-  - So ratio = 2 * (sum of the similarity score of matching blocks) / (sum of the sizes of the two strings).
+### Backend components
+The backend of Logoshot can be separated into the following two components.
+* Image recognition: allows users to take a photo of a logo, and the system will return trademarks which looks like the image.
+* Text search: allows users to input a keyword and other search criteria of the trademark, and the system will return trademarks which are both similar to the keyword and matches the search criteria.
+
+This repository mainly contains the **text search** component of Logoshot's backend.
