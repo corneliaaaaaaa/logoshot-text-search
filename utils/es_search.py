@@ -1,12 +1,5 @@
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
-from elasticsearch import helpers
-import json
-import pandas as pd
 import re
-import time
-from datetime import datetime
-import sys
 
 es = Elasticsearch(
     hosts="trueint.lu.im.ntu.edu.tw",
@@ -45,11 +38,10 @@ def travel_es(es, result_list, return_size, **kwargs):
     ## 最外面一層是一次scroll回傳的數量 這裡是10000 所以result_list有10層 每1層裡面1000筆 可以縮小res['hits']['hits']append的內容 主要所需是sourece跟id
     result = [[item['_source']['appl-no'], item['_source']['tmark-name'], item['_score']] for item in res['hits']['hits']]
     result_list.extend(result)
+    total_size += len(result) #TODO: bug?
     # 不要讓程式搜尋太多不必要的結果
     if total_size <= return_size:
         while scroll_size > 0:
-            "Scrolling..."
-
             # Before scroll, process current batch of hits
     #         process_func(res['hits']['hits'])
 
@@ -75,7 +67,22 @@ def travel_es(es, result_list, return_size, **kwargs):
 
     return total_size
 
-def esQuery(mode, length = 0, target_tmNames="", target_id_list = [], return_size = 1000, isImageSearchFilter=False, target_draft_c="", target_draft_e="", target_draft_j="", target_classcodes=[], target_color="", target_applicant="", target_startTime="", target_endTime="", es=es):
+def esQuery(
+    mode, 
+    length = 0, 
+    target_tmNames="", 
+    target_id_list = [], 
+    return_size = 1000, 
+    target_draft_c="", 
+    target_draft_e="", 
+    target_draft_j="", 
+    target_classcodes=[], 
+    target_color="", 
+    target_applicant="", 
+    target_startTime="", 
+    target_endTime="", 
+    es=es
+):
     #把多個空格替換成單個空格 並把前後的空格踢掉
     target_tmNames = re.sub(' +', ' ', target_tmNames).strip()
     #自空格切開 形成一個list(在下面進階搜尋會需要 也可以到下面再split)

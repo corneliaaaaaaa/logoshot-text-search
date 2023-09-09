@@ -1,17 +1,13 @@
-import json
-import pandas as pd
-import re
 import time
 import warnings
-from datetime import datetime
-from pymilvus import connections, Collection, utility
+import os
+import pandas as pd
+from pymilvus import Collection, utility
 from elasticsearch import Elasticsearch
-from elasticsearch_dsl import Search
-from utils.utils import get_object_size, transform_es_return_format, keyword_preprocess, sum_scores, process_results
+from utils.utils import keyword_preprocess, sum_scores, process_results
 from utils.sms.sequence_matcher_scoring import sequence_matcher_scoring
 from utils.es_search import esQuery, get_final_result
 from utils.milvus import connect_to_milvus, get_collection, search
-from memory_profiler import profile
 
 warnings.simplefilter("ignore") # TODO: remove
 
@@ -44,9 +40,11 @@ collection = get_collection('glyph_embedding_3619_no_length')
 # collection = get_collection('pinyin_embedding_300_L2')
 print("get collection done")
 
-df = pd.read_csv("/home/ericaaaaaaa/logoshot/utils/vector/glyph/CNS_SUMMARY_TABLE.csv", encoding="utf8")
+curr_dir, _ = os.path.split(__file__)
+root_dir, _ = os.path.split(curr_dir)
+DATA_PATH = os.path.join(root_dir, "vector/glyph", "CNS_SUMMARY_TABLE.csv")
+df = pd.read_csv(DATA_PATH, encoding="utf8")
 
-# @profile
 def text_search(
     glyph=False,
     pinyin=False,
@@ -113,7 +111,7 @@ def text_search(
     st = time.time()
 
     # strict search
-    if target_tmNames != "" and glyph == False and pinyin == False:
+    if target_tmNames != "" and glyph is False and pinyin is False:
         print("mode: 嚴格搜尋")
         es_results = esQuery(
             es=es,
@@ -235,7 +233,7 @@ def text_search(
                 es_results = esQuery(
                     es=es,
                     mode="different_score",
-                    # target_tmNames=target_tmNames,
+                    # target_tmNames=target_tmNames, #TODO: test
                     target_draft_c=target_draft_c,
                     target_draft_e=target_draft_e,
                     target_draft_j=target_draft_j,

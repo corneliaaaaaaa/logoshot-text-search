@@ -1,11 +1,11 @@
-from main import text_search
+import time
 import pandas as pd
 from datetime import datetime
-import time
+from main import text_search
 
 pinyin = False
 glyph = True
-constraints_mode = False
+constraints_mode = True
 same_length = False
 
 df = pd.read_excel("/home/ericaaaaaaa/logoshot/data/0716_test_data.xlsx")
@@ -37,7 +37,7 @@ for l in length_mode:
         if constraints_mode:
             start_date = datetime.strptime(str(row['target_startTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
             end_date = datetime.strptime(str(row['target_endTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
-            results, found, caseType, time = text_search(
+            results, found, caseType, time, sms_time = text_search(
                 glyph=glyph, 
                 pinyin=pinyin,
                 target_tmNames=row[l],
@@ -47,7 +47,7 @@ for l in length_mode:
                 target_color=row["tmark-color-desc"]
             )
         else:
-            results, found, caseType, time = text_search(
+            results, found, caseType, time, sms_time = text_search(
                 glyph=glyph, 
                 pinyin=pinyin,
                 target_tmNames=row[l],

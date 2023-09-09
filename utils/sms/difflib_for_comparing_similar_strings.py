@@ -422,6 +422,7 @@ class SequenceMatcher:
                     # print("newj2score", newj2score)
                     if s > bestscore:
                         besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
+            # TODO: testing to speed up
             j2len = newj2len
             j2score = newj2score
 

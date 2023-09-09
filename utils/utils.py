@@ -71,7 +71,10 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
 
     # create a list of tuples with the sums
     if showName:
-        result_list = [(appl_no, tmName_dict.get(appl_no, "unknown"), score_dict.get(appl_no, 0)) for appl_no in score_dict]
+        result_list = [
+            (appl_no, tmName_dict.get(appl_no, "unknown"), score_dict.get(appl_no, 0)) \
+            for appl_no in score_dict
+        ]
     else:
         result_list = [(appl_no, score_dict.get(appl_no, 0)) for appl_no in score_dict]
 

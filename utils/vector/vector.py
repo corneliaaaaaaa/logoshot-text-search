@@ -1,11 +1,8 @@
-import warnings
-import csv
-import pandas as pd
 import re
-import numpy as np
 import math
 import os
-from pypinyin import pinyin, lazy_pinyin, Style
+import numpy as np
+import pandas as pd
 from utils.vector.pinyin.pinyin import Pinyin, load_pinyin_to_simplified, load_pinyin_to_traditional
 from utils.vector.pinyin.utils import *
 
@@ -88,7 +85,7 @@ def get_pinyin_vector(utterance1: str="", pinyin: bool=False):
     for i in range(len(utterance1)):
         apy = la[i]
         if apy is None:
-            raise Exception("!Empty Pinyin {},{}".format(la))
+            raise Exception("!Empty Pinyin",la)
         consonant_i, vowel_i = get_edit_distance_close_2d_code(apy)
         word_list = []
         word_list.extend(list(consonant_i))
