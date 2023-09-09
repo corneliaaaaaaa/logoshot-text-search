@@ -105,6 +105,7 @@ def text_search(
     map_tmName = True
     in_top = 99999
     caseType = ""
+    sms_time = 0
 
     # preprocess
     target_tmNames = keyword_preprocess(target_tmNames) 
@@ -219,18 +220,18 @@ def text_search(
                     target_endTime=target_endTime,
                     return_size=es_return_size,
                 )
-                print("es_results", es_results[:data_shown])
                 es_time_same = time.time() - milvus_time - st
-                print("---es done", es_time_same)
+                print(f"es_results: {len(es_results)} records, spent {es_time_same} s")
+                print(es_results[:data_shown])
                 
                 # sum es score and milvus score
                 same_length_results = sum_scores(milvus_results, es_results, False)
-                print("same_length_results", same_length_results[:data_shown])
                 sum_time_same = time.time() - es_time_same - milvus_time - st
-                print("---sum score done", sum_time_same)
-
+                print(f"summed same_length_results: {len(same_length_results)} records, spent {sum_time_same} s")
+                print(same_length_results[:data_shown])
+                
                 # deal with trademarks of different length from the keyword
-                # elastic search by other search criteria
+                # elastic search by length of the target trademark name
                 es_results = esQuery(
                     es=es,
                     mode="different_score",
@@ -246,10 +247,10 @@ def text_search(
                     return_size=es_return_size,
                     length=len(target_tmNames),
                 )
-                print("es_results", es_results[:data_shown])
                 es_time_diff = time.time() - es_time_same - sum_time_same - milvus_time - st
-                print("---es done", es_time_diff)
-
+                print(f"es_results: {len(es_results)} records, spent {es_time_diff} s")
+                print(es_results[:data_shown])
+                
                 # get the id and trademark
                 es_results_id = [appl_no for appl_no, tmName, score in es_results]
                 es_results_tmName = [tmName for appl_no, tmName, score in es_results]
@@ -257,7 +258,7 @@ def text_search(
                 # sequence matcher scoring
                 sms_results = sequence_matcher_scoring(es_results_id, es_results_tmName, target_tmNames, sms_threshold, glyph)
                 sms_time = time.time() - es_time_diff - es_time_same - sum_time_same - milvus_time - st
-                print("---sms done", sms_time)
+                print(f"sms spent {sms_time} s")
 
                 # weight milvus results        
                 if not glyph:        
@@ -269,9 +270,9 @@ def text_search(
 
                 # sum es score and sms score
                 different_length_results = sum_scores(sms_results, es_results, False)
-                print("different_length_results", different_length_results[:data_shown])
                 sum_time_diff = time.time() - sms_time - es_time_diff - es_time_same - sum_time_same - milvus_time - st
-                print("---sum score done", sum_time_diff)
+                print(f"summed different_length_results: {len(different_length_results)} records, spent {sum_time_diff} s")
+                print(different_length_results[:data_shown])
 
                 # combine results of trademarks of same and different length
                 results.extend(same_length_results)
@@ -375,4 +376,4 @@ def text_search(
     else:
         final_results = results
 
-    return final_results, in_top, caseType, et - st # some outputs just for tests TODO
+    return final_results, in_top, caseType, et - st, sms_time # some outputs just for tests TODO
