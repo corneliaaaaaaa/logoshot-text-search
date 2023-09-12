@@ -1,5 +1,3 @@
-# logoshot-text-search
-
 ### Introduction of Logoshot
 Logoshot is an application which allows users to find similar trademarks based on multiple criteria, including logo designs, trademark names, application date and other details of logos. It can be used for the following two purposes.
 * Intellectual property management & inspection for the government, attorneys or companies which plan to publish new logos.
