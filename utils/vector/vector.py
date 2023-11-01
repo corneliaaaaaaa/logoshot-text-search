@@ -22,14 +22,15 @@ curr_dir, _ = os.path.split(__file__)
 root_dir, _ = os.path.split(curr_dir)
 DATA_PATH = os.path.join(root_dir, "vector/glyph", "CNS_SUMMARY_TABLE.csv")
 df = pd.read_csv(DATA_PATH)
-df = df[df['TEXT'] != '###']    
+df = df[df['TEXT'] != '###']
 component_id_set = set()
 for index, row in df.iterrows():
     for c in re.split(',|;', row['COMPONENTS']):
         component_id_set.add(int(c))
 print("load CNS summary table done")
 
-def chinese_length_pinyin(targetTM: str=""):
+
+def chinese_length_pinyin(targetTM: str = ""):
     """
     Get both the length and pinyin vector of the trademark name.
     The function adds 0 values to make the dimension of each trademark's vector the same.
@@ -39,7 +40,8 @@ def chinese_length_pinyin(targetTM: str=""):
     pinyin_vector = pinyin_vector + [0] * (maxDimPinyin - len(pinyin_vector))
     return length, pinyin_vector
 
-def chinese_length_glyph(targetTM: str=""):
+
+def chinese_length_glyph(targetTM: str = ""):
     """
     Get both the length and glyph vector of the trademark name.
     The function adds 0 values to make the dimension of each trademark's vector the same.
@@ -49,7 +51,8 @@ def chinese_length_glyph(targetTM: str=""):
     glyph_vector = glyph_vector + [0] * (maxDimGlyph - len(glyph_vector))
     return length, glyph_vector[:maxDimGlyph]
 
-def unit_pinyin(targetTM: str=""):
+
+def unit_pinyin(targetTM: str = ""):
     """
     Get the pinyin vector of the trademark name.
     """
@@ -60,7 +63,8 @@ def unit_pinyin(targetTM: str=""):
         d[w] = pinyin_vector
     return d
 
-def unit_glyph(targetTM: str=""):
+
+def unit_glyph(targetTM: str = ""):
     """
     Get the glyph vector of the trademark name.
     """
@@ -71,13 +75,14 @@ def unit_glyph(targetTM: str=""):
         d[w] = glyph_vector
     return d
 
-def get_pinyin_vector(utterance1: str="", pinyin: bool=False):
+
+def get_pinyin_vector(utterance1: str = "", pinyin: bool = False):
     """
     Get the pinyin vector of the trademark name.
     """
     utterance1 = re.sub(r"[^\u4e00-\u9fa5]", "", utterance1)
     if not pinyin:
-        u1 = to_pinyin(utterance1) 
+        u1 = to_pinyin(utterance1)
     la = []
     for py in u1:
         la.append(Pinyin(py))
@@ -85,7 +90,7 @@ def get_pinyin_vector(utterance1: str="", pinyin: bool=False):
     for i in range(len(utterance1)):
         apy = la[i]
         if apy is None:
-            raise Exception("!Empty Pinyin",la)
+            raise Exception("!Empty Pinyin", la)
         consonant_i, vowel_i = get_edit_distance_close_2d_code(apy)
         word_list = []
         word_list.extend(list(consonant_i))
@@ -94,10 +99,11 @@ def get_pinyin_vector(utterance1: str="", pinyin: bool=False):
         pinyin_vector.extend(word_list)
     return pinyin_vector
 
+
 def get_glyph_vector(
-    trademarkName: str="", 
-    component_id_set: set=component_id_set, 
-    size: int=glyph_max_name_length
+    trademarkName: str = "",
+    component_id_set: set = component_id_set,
+    size: int = glyph_max_name_length
 ):
     """
     Get the glyph vector of the trademark name.
@@ -112,7 +118,7 @@ def get_glyph_vector(
     targetTMComponentsList = []
     try:
         targetTM = re.sub(r"[^\u4e00-\u9fa5]", "", targetTM)   # 商標名稱只保留中文
-        if(len(targetTM) > size):
+        if (len(targetTM) > size):
             targetTM = targetTM[:size]
     except:
         pass
@@ -126,8 +132,10 @@ def get_glyph_vector(
                 # turn the component list into the binary vector
                 for c in re.split(',|;', component):
                     componentArr[component_mapping_dict[int(c)]] += 1
-                norm_componentArr = componentArr / np.linalg.norm(componentArr)   # normalize the array
-                norm_componentArr = norm_componentArr / math.sqrt(len(targetTM))
+                norm_componentArr = componentArr / \
+                    np.linalg.norm(componentArr)   # normalize the array
+                norm_componentArr = norm_componentArr / \
+                    math.sqrt(len(targetTM))
                 for i in norm_componentArr.tolist():
                     targetTMComponentsList.append(i)
             except:

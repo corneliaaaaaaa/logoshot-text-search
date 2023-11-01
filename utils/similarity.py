@@ -5,7 +5,8 @@ import math
 from ast import literal_eval
 from scipy.spatial import distance
 
-def compute_similarity(vec1: list=[], vec2: list=[], glyph: bool=False):
+
+def compute_similarity(vec1: list = [], vec2: list = [], glyph: bool = False):
     """
     Compute similarity for glyph or pinyin mode.
     """
@@ -15,4 +16,3 @@ def compute_similarity(vec1: list=[], vec2: list=[], glyph: bool=False):
         return 1 - distance.euclidean(vec1, vec2)
     # except:
     #     return 0
-    

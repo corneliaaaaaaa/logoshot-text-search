@@ -1,5 +1,6 @@
 import sys
-import re
+import regex as re
+
 
 def get_object_size(obj):
     """
@@ -20,6 +21,7 @@ def get_object_size(obj):
 
     return size
 
+
 def transform_es_return_format(hit_item):
     """
     Turn the original output data format to a more simple one, which only includes "tmark-name",
@@ -31,21 +33,38 @@ def transform_es_return_format(hit_item):
         tuple(hit_item["_source"]["CNS_COMPONENTS"]),
     )
 
-def keyword_preprocess(searchKeywords: str=""):
+
+def keyword_preprocess(searchKeywords: str = ""):
     """
-    Replace multiple white spaces in the keyword to one white space only.
+    Preprocessing for keywords, which indludes:
+    - Replace multiple white spaces in the keyword to one white space only.
+    - Extract Chinese, English part from the keyword.
+
     """
     keyword = re.sub(" +", " ", searchKeywords).strip()
 
-    return keyword
+    # TODO
+    chinese_pattern = r'[\u4e00-\u9fa5]+'
+    english_pattern = r'[A-Za-z0-9,.\-\'&*:]+'
 
-def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
+    # Use re.findall to extract substrings for each language
+    chinese_matches = re.findall(chinese_pattern, keyword)
+    english_matches = re.findall(english_pattern, keyword)
+
+    # Join the matched substrings to get the desired output
+    chinese_text = ' '.join(chinese_matches)
+    english_text = ' '.join(english_matches)
+
+    return chinese_text, english_text
+
+
+def sum_scores(result1: list = [], result2: list = [], showName: bool = False):
     """
     Sum scores from different results.
     """
     tmName_dict = {}
     score_dict = {}
-    target_appl = "109086061" #TODO: remove
+    target_appl = "91002722"  # TODO: remove
     once = False
 
     # calculate the sums
@@ -55,30 +74,31 @@ def sum_scores(result1: list=[], result2: list=[], showName: bool=False):
             tmName_dict[appl_no] = tmName_dict.get(appl_no, "") + tmName
         else:
             score_dict[appl_no] = score_dict.get(appl_no, 0) + score
-        if appl_no == target_appl:
-            print("hi", appl_no, tmName, score, result2.index((appl_no, tmName, score)))
-            print("eeeeeeeeeeeeee", score_dict.get(appl_no, 0))
-        if score == 0 and once is False :
-            once = True
-            print("!!!!!!!!!!!!!!!!!!!!! index !!!!!!!!!!!!!", result2.index((appl_no, tmName, score)))
+        # if appl_no == target_appl:
+        #     print("hi", appl_no, tmName, score, result2.index((appl_no, tmName, score)))
+        #     print("eeeeeeeeeeeeee", score_dict.get(appl_no, 0))
+        # if score == 0 and once is False :
+        #     once = True
+        #     print("!!!!!!!!!!!!!!!!!!!!! index !!!!!!!!!!!!!", result2.index((appl_no, tmName, score)))
 
     for appl_no, score in result1:
         score_dict[appl_no] = score_dict.get(appl_no, 0) + score
-        if appl_no == target_appl:
-            print("hi", appl_no, score)
-            print("ooooooooooooo", score_dict.get(appl_no, 0))
-
+        # if appl_no == target_appl:
+        #     print("hi", appl_no, score)
+        #     print("ooooooooooooo", score_dict.get(appl_no, 0))
 
     # create a list of tuples with the sums
     if showName:
         result_list = [
-            (appl_no, tmName_dict.get(appl_no, "unknown"), score_dict.get(appl_no, 0)) \
+            (appl_no, tmName_dict.get(appl_no, "unknown"), score_dict.get(appl_no, 0))
             for appl_no in score_dict
         ]
     else:
-        result_list = [(appl_no, score_dict.get(appl_no, 0)) for appl_no in score_dict]
+        result_list = [(appl_no, score_dict.get(appl_no, 0))
+                       for appl_no in score_dict]
 
     return result_list
+
 
 def process_results(results):
     """
@@ -93,9 +113,10 @@ def process_results(results):
             highest_scores[appl_no] = score
 
     # use a list comprehension to filter out tuples with lower scores
-    results = [(appl_no, score) for appl_no, score in results if score == highest_scores[appl_no]]
+    results = [(appl_no, score)
+               for appl_no, score in results if score == highest_scores[appl_no]]
 
     # sort results
-    results = sorted(results, key= lambda x: x[-1], reverse=True)
+    results = sorted(results, key=lambda x: x[-1], reverse=True)
 
     return results

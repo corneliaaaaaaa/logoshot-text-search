@@ -5,7 +5,7 @@ from main import text_search
 
 pinyin = False
 glyph = True
-constraints_mode = True
+constraints_mode = False
 same_length = False
 
 df = pd.read_excel("/home/ericaaaaaaa/logoshot/data/0716_test_data.xlsx")
@@ -15,17 +15,20 @@ answer_list = []
 pass_or_fail = []
 caseType_list = []
 time_list = []
+sms_time_list = []
 length_mode = []
 total_time = 0
+sms_cnt = 0
+total_sms_time = 0
 
 if glyph:
     if same_length:
-        length_mode = ["形近(長度同)"] 
+        length_mode = ["形近(長度同)"]
     else:
         length_mode = ["形近(長度同)", "形近(長度不同)"]
 else:
     if same_length:
-        length_mode = ["音近(長度同)"] 
+        length_mode = ["音近(長度同)"]
     else:
         length_mode = ["音近(長度同)", "音近(長度不同)"]
 
@@ -33,12 +36,15 @@ for l in length_mode:
     for index, row in df.iterrows():
         test_cases.append(row[l])
         answer_list.append(row["正確答案"])
-        print(f"-----------------------start searching {row[l]}------------------------")
+        print(
+            f"-----------------------start searching {row[l]}------------------------")
         if constraints_mode:
-            start_date = datetime.strptime(str(row['target_startTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
-            end_date = datetime.strptime(str(row['target_endTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
+            start_date = datetime.strptime(
+                str(row['target_startTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
+            end_date = datetime.strptime(
+                str(row['target_endTime']), '%Y-%m-%d  %H:%M:%S').strftime('%Y/%m/%d')
             results, found, caseType, time, sms_time = text_search(
-                glyph=glyph, 
+                glyph=glyph,
                 pinyin=pinyin,
                 target_tmNames=row[l],
                 correct_ans=row["正確答案"],
@@ -48,7 +54,7 @@ for l in length_mode:
             )
         else:
             results, found, caseType, time, sms_time = text_search(
-                glyph=glyph, 
+                glyph=glyph,
                 pinyin=pinyin,
                 target_tmNames=row[l],
                 correct_ans=row["正確答案"],
@@ -57,6 +63,10 @@ for l in length_mode:
         caseType_list.append(caseType)
         time_list.append(time)
         total_time += time
+        sms_time_list.append(sms_time)
+        if sms_time != 0:
+            sms_cnt += 1
+        total_sms_time += sms_time
 
 hit_dict = {'hit 1': 0, 'hit 3': 0, 'hit 5': 0, 'hit 10': 0}
 for i in pass_or_fail:
@@ -78,6 +88,7 @@ test_df = pd.DataFrame({
     "in top #": pass_or_fail,
     "case type": caseType_list,
     "time used": time_list,
+    "sms time": sms_time_list,
 })
 print(test_df)
 
@@ -85,9 +96,12 @@ date = datetime.now().strftime("%m%d")
 time = datetime.now().strftime("%H%M")
 
 if glyph:
-    test_df.to_csv(f"/home/ericaaaaaaa/logoshot/results/test_results/glyph_{date}_{time}_c?{constraints_mode}_{accuracy: .3f}.csv", index=False)
+    test_df.to_csv(
+        f"/home/ericaaaaaaa/logoshot/results/test_results/glyph_{date}_{time}_c?{constraints_mode}_{accuracy: .3f}.csv", index=False)
 else:
-    test_df.to_csv(f"/home/ericaaaaaaa/logoshot/results/test_results/pinyin_{date}_{time}_c?{constraints_mode}_{accuracy: .3f}.csv", index=False)
-    
+    test_df.to_csv(
+        f"/home/ericaaaaaaa/logoshot/results/test_results/pinyin_{date}_{time}_c?{constraints_mode}_{accuracy: .3f}.csv", index=False)
+
 print("average time", total_time / test_df.shape[0])
+print("average sms time", total_sms_time / sms_cnt)
 print("hit dict", hit_dict)
