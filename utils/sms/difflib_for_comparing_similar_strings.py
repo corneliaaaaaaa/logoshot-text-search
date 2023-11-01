@@ -1,3 +1,4 @@
+import time
 """
 Module difflib -- helpers for computing deltas between objects.
 
@@ -409,7 +410,6 @@ class SequenceMatcher:
             newj2len = {}
             for j in range(j_beginning, bhi):
                 similarity = compute_similarity(a[i], b[j], glyph)
-                # print("similarity", i, j, similarity) TODO: remove
                 # if a[i] is similar to b[j] enough
                 if similarity >= threshold:
                     if j < blo:
@@ -487,7 +487,6 @@ class SequenceMatcher:
         >>> list(s.get_matching_blocks())
         [Match(a=0, b=0, size=2), Match(a=3, b=2, size=2), Match(a=5, b=4, size=0)]
         """
-
         if self.matching_blocks is not None:
             return self.matching_blocks
         la, lb = len(self.a), len(self.b)
@@ -542,6 +541,7 @@ class SequenceMatcher:
 
         non_adjacent.append((la, lb, 0))
         self.matching_blocks = list(map(Match._make, non_adjacent))
+
         return self.matching_blocks
 
     def get_opcodes(self):
@@ -670,7 +670,6 @@ class SequenceMatcher:
         >>> s.real_quick_ratio()
         1.0
         """
-
         matches = sum(triple[-1] for triple in self.get_matching_blocks())
         return _calculate_ratio(matches, len(self.a) + len(self.b))
 

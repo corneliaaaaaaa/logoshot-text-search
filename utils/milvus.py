@@ -17,7 +17,7 @@ def get_collection(name):
     collection.load()
     return collection
 
-def search(nprobe=100, target='', collection=Collection, type='IP'):
+def search(size = 16000, nprobe=100, target='', collection=Collection, type='IP'):
     if type == 'L2':
         search_params = {"metric_type": "L2", "params": {"nprobe": nprobe}}
         length, vector = chinese_length_pinyin(target)
@@ -25,7 +25,7 @@ def search(nprobe=100, target='', collection=Collection, type='IP'):
                 data=[vector], 
                 anns_field="vector", 
                 param=search_params,
-                limit=16383, 
+                limit=size,
                 expr=f"length == {length}",
                 output_fields=['appl_no'], # set the names of the fields you want to retrieve from the search result.
                 consistency_level="Strong"
@@ -38,7 +38,7 @@ def search(nprobe=100, target='', collection=Collection, type='IP'):
             data=[vector], 
             anns_field="vector", 
             param=search_params,
-            limit=16383,
+            limit=size,
             output_fields=['appl_no'], # set the names of the fields you want to retrieve from the search result.
             consistency_level="Strong"
         )

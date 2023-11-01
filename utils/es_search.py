@@ -1,23 +1,39 @@
 from elasticsearch import Elasticsearch
 import re
 
-es = Elasticsearch(
-    hosts="trueint.lu.im.ntu.edu.tw",
-    port=9200,
-    timeout=180
-)
 
 def get_final_result(es, target_id_list):
-    query_body = {"query": {"bool": {"filter":{"terms": {"appl-no": target_id_list}}}}}        
+    query_body = {
+        "query": {
+            "bool": {
+                "filter": {
+                    "terms": {
+                        "appl-no": target_id_list
+                    }
+                }
+            }
+        },
+        "size": len(target_id_list)
+    }
     result_detail = es.search(query_body, index="logoshot2022")
-    # final_result = [[item['_source']['appl-no'], item['_source']['tmark-name'], item['_source']['tmark-image-url_1']] for item in result_detail['hits']['hits']]
-    final_result = [item['_source'] for item in result_detail['hits']['hits']]
-    
+
+    final_result = [
+        (
+            item['_source']['appl-no'],
+            item['_source']['tmark-name'],
+            item['_source']['tmark-image-url_1']
+        ) for item in result_detail['hits']['hits']
+    ]
+    final_result = sorted(
+        final_result, key=lambda x: target_id_list.index(x[0]))
+
     return final_result
 
 # ES 的搜索是有數量限制的，因此利用官方提供的滾動 API 實現了一個對全量數據處理的功能
 # 應該是這邊跑太慢了 應該可以試著處理query的寫法 這裡回傳的resultAAA已經依照score排序
-def travel_es(es, result_list, return_size, **kwargs):
+
+
+def travel_es(es, result_list, return_size, mode, **kwargs):
     """
     遍歷es的搜索結果，並使用process_func處理返回的item
     process_func: function to process item.
@@ -25,40 +41,46 @@ def travel_es(es, result_list, return_size, **kwargs):
     """
     kwargs.setdefault("scroll", "2m")
     kwargs.setdefault("size", 1000)
-    #res的結果已經按找score排序了
+    # res的結果已經按找score排序了
     res = es.search(**kwargs)
 
     sid = res['_scroll_id']
-#     print("sid:", sid)
-
     scroll_size = len(res['hits']['hits'])
-
     total_size = scroll_size
-    
-    ## 最外面一層是一次scroll回傳的數量 這裡是10000 所以result_list有10層 每1層裡面1000筆 可以縮小res['hits']['hits']append的內容 主要所需是sourece跟id
-    result = [[item['_source']['appl-no'], item['_source']['tmark-name'], item['_score']] for item in res['hits']['hits']]
-    result_list.extend(result)
-    total_size += len(result) #TODO: bug?
-    # 不要讓程式搜尋太多不必要的結果
-    if total_size <= return_size:
-        while scroll_size > 0:
-            # Before scroll, process current batch of hits
-    #         process_func(res['hits']['hits'])
 
+    # 最外面一層是一次scroll回傳的數量 這裡是10000 所以result_list有10層 每1層裡面1000筆 可以縮小res['hits']['hits']append的內容 主要所需是sourece跟id
+    if mode == "strict":
+        result = [
+            (
+                item['_source']['appl-no'],
+                item['_source']['tmark-name'],
+                item['_source']['tmark-image-url_1']
+            ) for item in res['hits']['hits']
+        ]
+    else:
+        result = [[item['_source']['appl-no'], item['_source']
+                   ['tmark-name'], item['_score']] for item in res['hits']['hits']]
+    result = result[:return_size]
+    result_list.extend(result)
+
+    # 不要讓程式搜尋太多不必要的結果
+    if total_size < return_size:
+        while scroll_size > 0:
             data = es.scroll(scroll_id=sid, scroll='4m')
 
             # Update the scroll ID
             sid = data['_scroll_id']
-    #         print("sid:", sid)
 
             # Get the number of results that returned in the last scroll
-            # hits hits的東西很多 不見得要都回傳
-            result = [[item['_source']['appl-no'], item['_source']['tmark-name'], item['_score']] for item in data['hits']['hits']]
+            if mode == "strict":
+                result = [(item['_source']['appl-no'], item['_source']['tmark-name'],
+                           item['_source']['tmark-image-url_1']) for item in data['hits']['hits']]
+            else:
+                result = [[item['_source']['appl-no'], item['_source']
+                           ['tmark-name'], item['_score']] for item in data['hits']['hits']]
             result_list.extend(result)
 
             scroll_size = len(result)
-    #         print("scroll_size:", scroll_size)
-
             total_size += scroll_size
 
             # 不要讓程式搜尋太多不必要的結果
@@ -67,35 +89,36 @@ def travel_es(es, result_list, return_size, **kwargs):
 
     return total_size
 
+
 def esQuery(
-    mode, 
-    length = 0, 
-    target_tmNames="", 
-    target_id_list = [], 
-    return_size = 1000, 
-    target_draft_c="", 
-    target_draft_e="", 
-    target_draft_j="", 
-    target_classcodes=[], 
-    target_color="", 
-    target_applicant="", 
-    target_startTime="", 
-    target_endTime="", 
-    es=es
+    mode,
+    es,
+    length=0,
+    target_tmNames="",
+    target_id_list=[],
+    return_size=1000,
+    target_draft_c="",
+    target_draft_e="",
+    target_draft_j="",
+    target_classcodes=[],
+    target_color="",
+    target_applicant="",
+    target_startTime="",
+    target_endTime="",
 ):
-    #把多個空格替換成單個空格 並把前後的空格踢掉
+    # 把多個空格替換成單個空格 並把前後的空格踢掉
     target_tmNames = re.sub(' +', ' ', target_tmNames).strip()
-    #自空格切開 形成一個list(在下面進階搜尋會需要 也可以到下面再split)
+    # 自空格切開 形成一個list(在下面進階搜尋會需要 也可以到下面再split)
     target_tmNames = target_tmNames.split()
-    ### 移動處 (11/15)
+    # 移動處 (11/15)
     resultsAAA = []
-    if(mode == "same"):
+    if (mode == "same"):
         return_size = len(target_id_list)
     # ** 注意 target_tmNames 若為 [] **
-    
-    if(mode != "different"):
+
+    if (mode != "different"):
         query_body = {"query": {}}
-        query_body["sort"] = [{"_score": "desc"}, {"appl-date":"desc"}]
+        query_body["sort"] = [{"_score": "desc"}, {"appl-date": "desc"}]
         # 只要使用者［有］輸入任何搜尋條件（無論文字搜尋或是圖片搜尋）
         if target_tmNames != [] or target_draft_c != "" or target_draft_e != "" or target_draft_j != "" or target_classcodes != [] or target_color != "" or target_applicant != "" or target_startTime != "" or target_endTime != "" or target_id_list != [] or length != 0:
             query_body["query"]["bool"] = {}
@@ -112,7 +135,7 @@ def esQuery(
                     "match": {
                         "tmark-name": {
                             "query": akeyword,
-                            "boost": 20 #有match到這些字的權重加20
+                            "boost": 20  # 有match到這些字的權重加20
                         }
                     }
                 })
@@ -133,13 +156,13 @@ def esQuery(
                 }
             }
 
-            query_body["query"]["bool"]["should"].append(searchApplicant_queryStr)
+            query_body["query"]["bool"]["should"].append(
+                searchApplicant_queryStr)
 
-        # 以下三段是什麼意思?為何不是filter?
         # 【有指定搜尋】圖樣內文字，含中文、英文、日文，不含符號
-
         if target_draft_c != "":
-            q_target_draft_c = re.sub(' +', ' ', target_draft_c).strip()  # 去除所有空白
+            q_target_draft_c = re.sub(
+                ' +', ' ', target_draft_c).strip()  # 去除所有空白
             q_target_draft_c = "*" + "*".join(q_target_draft_c) + "*"
 
             searchChineseDraft_queryStr = {  # 不要 multi_match 了，改用 query_string
@@ -150,10 +173,11 @@ def esQuery(
                     ]
                 }
             }
-            query_body["query"]["bool"]["should"].append(searchChineseDraft_queryStr)
-
+            query_body["query"]["bool"]["should"].append(
+                searchChineseDraft_queryStr)
         if target_draft_e != "":
-            q_target_draft_e = re.sub(' +', ' ', target_draft_e).strip()  # 去除所有空白
+            q_target_draft_e = re.sub(
+                ' +', ' ', target_draft_e).strip()  # 去除所有空白
             q_target_draft_e = "*" + "*".join(q_target_draft_e) + "*"
 
             searchEnglishDraft_queryStr = {  # 不要 multi_match 了，改用 query_string
@@ -164,10 +188,11 @@ def esQuery(
                     ]
                 }
             }
-            query_body["query"]["bool"]["should"].append(searchEnglishDraft_queryStr)
-
+            query_body["query"]["bool"]["should"].append(
+                searchEnglishDraft_queryStr)
         if target_draft_j != "":
-            q_target_draft_j = re.sub(' +', ' ', target_draft_j).strip()  # 去除所有空白
+            q_target_draft_j = re.sub(
+                ' +', ' ', target_draft_j).strip()  # 去除所有空白
             q_target_draft_j = "*" + "*".join(q_target_draft_j) + "*"
 
             searcJapaneseDraft_queryStr = {  # 不要 multi_match 了，改用 query_string
@@ -178,7 +203,8 @@ def esQuery(
                     ]
                 }
             }
-            query_body["query"]["bool"]["should"].append(searcJapaneseDraft_queryStr)
+            query_body["query"]["bool"]["should"].append(
+                searcJapaneseDraft_queryStr)
 
         # 【有指定搜尋】商標類別
         if target_classcodes != []:
@@ -212,25 +238,27 @@ def esQuery(
                     "appl-no": target_id_list
                 }
             })
-        
-        if(mode == "different_score"):
+
+        if (mode == "different_score"):
             query_body["query"]["bool"]["filter"].append(
-                    {"bool": {"must_not": {"terms": {"length": [length,0]}}}})
-        queryResultsCNT = travel_es(es, resultsAAA, return_size, index="logoshot2022", body=query_body)
-        if(mode != "strict"):
-            if(resultsAAA):
+                {"bool": {"must_not": {"terms": {"length": [length, 0]}}}})
+        queryResultsCNT = travel_es(
+            es, resultsAAA, return_size, mode, index="logoshot2022", body=query_body)
+        if mode != "strict":
+            if resultsAAA:
                 min_score = resultsAAA[-1][-1]
                 max_score = resultsAAA[0][-1]
-                if(min_score != max_score):
+                if (min_score != max_score):
                     for i in resultsAAA:
                         i[-1] = ((i[-1] - min_score) / (max_score - min_score))
                 else:
                     for i in resultsAAA:
                         i[-1] = 0
-                resultsAAA = [(item[-3], item[-2], item[-1]) for item in resultsAAA] 
-        else:
-            resultsAAA = [(item[-3], item[-2], item[-1]) for item in resultsAAA] 
-        
+                resultsAAA = [(item[-3], item[-2], item[-1])
+                              for item in resultsAAA]
+        # else:
+        #     resultsAAA = [(item[-3], item[-2], item[-1]) for item in resultsAAA]
+
     else:
         unionAAA_word = []
         unionAAA_length = []
@@ -243,15 +271,18 @@ def esQuery(
                 "match": {
                     "tmark-name": {
                         "query": akeyword,
-                        "boost": 20 #有match到這些字的權重加20
+                        "boost": 20  # 有match到這些字的權重加20
                     }
                 }
             })
-        query_body_length = {"query": {"bool": {"filter":{"bool": {"must": {"terms": {"length": [length+2,length-2]}}}}}}}
-        queryResultsCNT = travel_es(es, unionAAA_length, return_size / 2, index="logoshot2022", body=query_body_length)
-        queryResultsCNT = travel_es(es, unionAAA_word, return_size / 2, index="logoshot2022", body=query_body_word)
-        unionAAA_word = [(item[0], item[1]) for item in unionAAA_word] 
-        unionAAA_length = [(item[0], item[1]) for item in unionAAA_length] 
+        query_body_length = {"query": {"bool": {"filter": {
+            "bool": {"must": {"terms": {"length": [length+2, length-2]}}}}}}}
+        queryResultsCNT = travel_es(es, unionAAA_length, int(
+            return_size / 2), mode, index="logoshot2022", body=query_body_length)
+        queryResultsCNT = travel_es(es, unionAAA_word, int(
+            return_size / 2), mode, index="logoshot2022", body=query_body_word)
+        unionAAA_word = [(item[0], item[1]) for item in unionAAA_word]
+        unionAAA_length = [(item[0], item[1]) for item in unionAAA_length]
         unionAAA_word.extend(unionAAA_length)
         resultsAAA = set(unionAAA_word)
 
