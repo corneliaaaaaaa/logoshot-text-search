@@ -8,21 +8,14 @@ from utils.sms.sequence_matcher_scoring import sequence_matcher_scoring
 from utils.es_search import esQuery, get_final_result
 from utils.milvus import connect_to_milvus, get_collection, search
 
-warnings.simplefilter("ignore")  # TODO: remove
-
+# connect with elasticsearch
 es = Elasticsearch(
     hosts="trueint.lu.im.ntu.edu.tw",
     port=9200,
     timeout=180
-    # 'http://localhost:9200/'  # 連線叢集，以列表的形式存放各節點的IP地址
-    # sniff_on_start=True,    # 連線前測試
-    # sniff_on_connection_fail=True,  # 節點無響應時重新整理節點
-    # sniff_timeout=60,    # 設定超時時間
-    # ignore=400,  # 忽略返回的400狀態碼
-    # ignore=[400, 405, 502],  # 以列表的形式忽略多個狀態碼
-    # http_auth=('elastic', 'changeme')  # 認證資訊
 )
 
+# connect with milvus
 connect_to_milvus()
 ll = utility.list_collections()
 for c in ll:
@@ -30,6 +23,7 @@ for c in ll:
     print("collection", c)
     collection.release()
 
+# load milvus collections
 print("collection release done")
 pinyin_collection = get_collection('pinyin_embedding_300_L2')
 print("get pinyin data collection done")
@@ -57,7 +51,6 @@ def text_search(
     target_startTime="",
     target_endTime="",
     es=es,
-    correct_ans="",  # TODO
 ):
     """
     Execute the complete process of text searching. The process includes:
@@ -97,6 +90,7 @@ def text_search(
         es_return_size_4 = 1000
         data_collection = pinyin_collection
         unit_collection = pinyin_unit_collection
+        sms_threshold = -0.3
     # if score of that index > threshold, there's no need for further searching
     milvus_key_index = 0
     data_shown = 10
@@ -111,15 +105,9 @@ def text_search(
     final_results = []
     weight = 1
     nprobe = 1000
-    # variables for testing TODO: will be removed
-    map_tmName = True
-    in_top = 99999
-    caseType = ""
-    sms_time = 0
 
     # preprocess
-    if target_draft_e == "":
-        target_tmNames, target_draft_e = keyword_preprocess(target_tmNames)
+    target_tmNames = keyword_preprocess(target_tmNames)
 
     st = time.time()
 
@@ -153,10 +141,9 @@ def text_search(
             milvus_results = search(size=milvus_return_size, nprobe=nprobe,
                                     target=target_tmNames, collection=data_collection, type="IP")
         milvus_time = time.time() - st
-
-        # # sort the items with same score with id, descending
-        # sorted_items = sorted(items, key=lambda item: (-item[1], -ord(item[0])))
-
+        # sort the items with same score with id, descending
+        milvus_results = sorted(
+            milvus_results, key=lambda item: (-item[1], item[0]))
         print(
             f"milvus_results: {len(milvus_results)} records, spent {milvus_time:.4f} s")
         print(milvus_results[:data_shown])
@@ -296,7 +283,8 @@ def text_search(
                     sms_top_score = sms_results[0][1]
                     if sms_top_score == 1:
                         sms_top_score = 0.99999
-                    weight = milvus_results[0][1] / (1 - sms_top_score)
+                    weight = (milvus_results[0][1] +
+                              0.0001) / (1 - sms_top_score)
                     sms_results = [(appl_no, (1 - score) * weight)
                                    for appl_no, score in sms_results]
                 else:
@@ -355,7 +343,8 @@ def text_search(
                     sms_top_score = sms_results[0][1]
                     if sms_top_score == 1:
                         sms_top_score = 0.99999
-                    weight = milvus_results[0][1] / (1 - sms_top_score)
+                    weight = (milvus_results[0][1] +
+                              0.0001) / (1 - sms_top_score)
                     sms_results = [(appl_no, (1 - score) * weight)
                                    for appl_no, score in sms_results]
                 else:
@@ -373,42 +362,6 @@ def text_search(
     print(f"final results: {len(results)} records")
     print(results[:data_shown])
 
-    # check results (TODO: will be removed)
-    if map_tmName:
-        results_id_list = [appl_no for appl_no, tmName in results]
-        tmp = esQuery(
-            es=es,
-            mode="same",
-            target_id_list=results_id_list,
-            return_size=data_shown * 3,
-        )
-        check_results = sum_scores(results, tmp, True)
-        check_results = sorted(
-            check_results, key=lambda x: x[-1], reverse=True)
-        print("map_tmName results")
-        print(check_results[:data_shown])
-
-        # check if target in top hits
-        for r in check_results[:data_shown]:
-            if correct_ans == r[1]:
-                print("correct!", r)
-                if r[0] in results_id_list:
-                    in_top = results_id_list.index(r[0]) + 1
-                    break
-    else:
-        print("!map_tmName results")
-        print(results[:data_shown])
-
-        results_id_list = [appl_no for appl_no,
-                           tmName, score in results]
-        # check if target in top ten
-        for r in results[:data_shown]:
-            if correct_ans == r[1]:
-                print("correct!")
-                if r[0] in results_id_list:
-                    in_top = results_id_list.index(r[0]) + 1
-                    break
-
     # query full document of each result if not strict mode
     if glyph or pinyin:
         results_id_list = [appl_no for appl_no, tmName in results]
@@ -425,5 +378,4 @@ def text_search(
     print(f"results returned to FE: {len(final_results)} records")
     print(final_results[:data_shown])
 
-    # , in_top, caseType, et - st, sms_time # some outputs just for tests TODO
-    return final_results, in_top, caseType, et - st, sms_time
+    return final_results

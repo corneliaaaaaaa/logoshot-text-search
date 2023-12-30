@@ -1,3 +1,4 @@
+import re
 import time
 """
 Module difflib -- helpers for computing deltas between objects.
@@ -322,6 +323,7 @@ class SequenceMatcher:
             for elt in popular:  # ditto; as fast for 1% deletion
                 del b2j[elt]
     """
+
     def find_longest_match(self, alo=0, ahi=None, blo=0, bhi=None):
         """Find longest matching block in a[alo:ahi] and b[blo:bhi].
 
@@ -384,7 +386,7 @@ class SequenceMatcher:
             self.a,
             self.b,
             # self.b2j,
-            #self.bjunk.__contains__,
+            # self.bjunk.__contains__,
             self.threshold,
             self.glyph,
         )
@@ -399,8 +401,8 @@ class SequenceMatcher:
         j2score = {}
         j2len = {}
         nothing = []
-        j_beginning = blo #TODO: refactor
-        
+        j_beginning = blo
+
         for i in range(alo, ahi):
             # look at all instances of a[i] in b; note that because
             # b2j has no junk keys, the loop is skipped if a[i] is junk
@@ -418,11 +420,9 @@ class SequenceMatcher:
                         break
                     k = newj2len[j] = j2lenget(j - 1, 0) + 1
                     s = newj2score[j] = j2scoreget(j - 1, 0) + similarity
-                    # print("newj2len", newj2len) TODO: remove
                     # print("newj2score", newj2score)
                     if s > bestscore:
                         besti, bestj, bestsize, bestscore = i - k + 1, j - k + 1, k, s
-            # TODO: testing to speed up
             j2len = newj2len
             j2score = newj2score
 
@@ -503,7 +503,6 @@ class SequenceMatcher:
             alo, ahi, blo, bhi = queue.pop()
             x, k = self.find_longest_match(alo, ahi, blo, bhi)
             i, j, s = x
-            # print("i j s k", i, j, s, k) TODO: remove
             # a[alo:i] vs b[blo:j] unknown
             # a[i:i+k] same as b[j:j+k]
             # a[i+k:ahi] vs b[j+k:bhi] unknown
@@ -513,8 +512,6 @@ class SequenceMatcher:
                     queue.append((alo, i, blo, j))
                 if i + k < ahi and j + k < bhi:
                     queue.append((i + k, ahi, j + k, bhi))
-                # print("queue", queue) #TODO: remove
-        # print("matching blocks", matching_blocks) TODO: remove
         matching_blocks.sort()
 
         # It's possible that we have adjacent equal blocks in the
@@ -1097,8 +1094,6 @@ class Differ:
 # remaining is that perhaps it was really the case that " volatile"
 # was inserted after "private".  I can live with that <wink>.
 
-import re
-
 
 def IS_LINE_JUNK(line, pat=re.compile(r"\s*(?:#\s*)?$").match):
     r"""
@@ -1137,7 +1132,7 @@ def IS_CHARACTER_JUNK(ch, ws=" \t"):
 
 
 ########################################################################
-###  Unified Diff
+# Unified Diff
 ########################################################################
 
 
@@ -1224,7 +1219,7 @@ def unified_diff(
 
 
 ########################################################################
-###  Context Diff
+# Context Diff
 ########################################################################
 
 
@@ -1328,11 +1323,13 @@ def _check_types(a, b, *args):
     # because of how str.format() incorporates bytes objects.
     if a and not isinstance(a[0], str):
         raise TypeError(
-            "lines to compare must be str, not %s (%r)" % (type(a[0]).__name__, a[0])
+            "lines to compare must be str, not %s (%r)" % (
+                type(a[0]).__name__, a[0])
         )
     if b and not isinstance(b[0], str):
         raise TypeError(
-            "lines to compare must be str, not %s (%r)" % (type(b[0]).__name__, b[0])
+            "lines to compare must be str, not %s (%r)" % (
+                type(b[0]).__name__, b[0])
         )
     for arg in args:
         if not isinstance(arg, str):
@@ -1364,7 +1361,8 @@ def diff_bytes(
         try:
             return s.decode("ascii", "surrogateescape")
         except AttributeError as err:
-            msg = "all arguments must be bytes, not %s (%r)" % (type(s).__name__, s)
+            msg = "all arguments must be bytes, not %s (%r)" % (
+                type(s).__name__, s)
             raise TypeError(msg) from err
 
     a = list(map(decode, a))
@@ -1375,7 +1373,8 @@ def diff_bytes(
     tofiledate = decode(tofiledate)
     lineterm = decode(lineterm)
 
-    lines = dfunc(a, b, fromfile, tofile, fromfiledate, tofiledate, n, lineterm)
+    lines = dfunc(a, b, fromfile, tofile, fromfiledate,
+                  tofiledate, n, lineterm)
     for line in lines:
         yield line.encode("ascii", "surrogateescape")
 
@@ -1494,14 +1493,16 @@ def _mdiff(fromlines, tolines, context=None, linejunk=None, charjunk=IS_CHARACTE
             sub_info = []
 
             def record_sub_info(match_object, sub_info=sub_info):
-                sub_info.append([match_object.group(1)[0], match_object.span()])
+                sub_info.append(
+                    [match_object.group(1)[0], match_object.span()])
                 return match_object.group(1)
 
             change_re.sub(record_sub_info, markers)
             # process each tuple inserting our special marks that won't be
             # noticed by an xml/html escaper.
             for key, (begin, end) in reversed(sub_info):
-                text = text[0:begin] + "\0" + key + text[begin:end] + "\1" + text[end:]
+                text = text[0:begin] + "\0" + key + \
+                    text[begin:end] + "\1" + text[end:]
             text = text[2:]
         # Handle case of add/delete entire line
         else:
@@ -1979,7 +1980,8 @@ class HtmlDiff(object):
             # handle blank lines where linenum is '>' or ''
             id = ""
         # replace those things that would get confused with HTML symbols
-        text = text.replace("&", "&amp;").replace(">", "&gt;").replace("<", "&lt;")
+        text = text.replace("&", "&amp;").replace(
+            ">", "&gt;").replace("<", "&lt;")
 
         # make space non-breakable so they don't get compressed or line wrapped
         text = text.replace(" ", "&nbsp;").rstrip()
@@ -2021,7 +2023,8 @@ class HtmlDiff(object):
                     # (the context lines) before the change for the previous
                     # link
                     i = max([0, i - numlines])
-                    next_id[i] = ' id="difflib_chg_%s_%d"' % (toprefix, num_chg)
+                    next_id[i] = ' id="difflib_chg_%s_%d"' % (
+                        toprefix, num_chg)
                     # at the beginning of a change, drop a link to the next
                     # change
                     num_chg += 1
@@ -2038,10 +2041,12 @@ class HtmlDiff(object):
             next_href = [""]
             last = 0
             if context:
-                fromlist = ["<td></td><td>&nbsp;No Differences Found&nbsp;</td>"]
+                fromlist = [
+                    "<td></td><td>&nbsp;No Differences Found&nbsp;</td>"]
                 tolist = fromlist
             else:
-                fromlist = tolist = ["<td></td><td>&nbsp;Empty File&nbsp;</td>"]
+                fromlist = tolist = [
+                    "<td></td><td>&nbsp;Empty File&nbsp;</td>"]
         # if not a change on first line, drop a link
         if not flaglist[0]:
             next_href[0] = '<a href="#difflib_chg_%s_0">f</a>' % toprefix
@@ -2169,7 +2174,8 @@ def restore(delta, which):
     try:
         tag = {1: "- ", 2: "+ "}[int(which)]
     except KeyError:
-        raise ValueError("unknown delta choice (must be 1 or 2): %r" % which) from None
+        raise ValueError(
+            "unknown delta choice (must be 1 or 2): %r" % which) from None
     prefixes = ("  ", tag)
     for line in delta:
         if line[:2] in prefixes:
@@ -2177,7 +2183,8 @@ def restore(delta, which):
 
 
 def _test():
-    import doctest, difflib
+    import doctest
+    import difflib
 
     return doctest.testmod(difflib)
 

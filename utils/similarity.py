@@ -13,6 +13,4 @@ def compute_similarity(vec1: list = [], vec2: list = [], glyph: bool = False):
     if glyph:
         return 1 - distance.cosine(np.array(vec1), np.array(vec2))
     else:
-        return 1 - distance.euclidean(vec1, vec2)
-    # except:
-    #     return 0
+        return - distance.euclidean(vec1, vec2)

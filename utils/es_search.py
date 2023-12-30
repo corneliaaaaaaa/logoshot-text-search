@@ -16,7 +16,7 @@ def get_final_result(es, target_id_list):
         "size": len(target_id_list)
     }
     result_detail = es.search(query_body, index="logoshot2022")
-
+    print('--------------------------', target_id_list[:10])
     final_result = [
         (
             item['_source']['appl-no'],

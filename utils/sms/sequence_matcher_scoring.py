@@ -82,7 +82,6 @@ def sequence_matcher_scoring(
             "appl_no": id_list,
             "tmName": tmName_list,
             "similarity": [0.0] * len(tmName_list),
-            # "matching_blocks": [[]] * len(tmName_list),
             "tmName_char_vec": tmName_char_vec_list,
         }
     )
@@ -92,9 +91,9 @@ def sequence_matcher_scoring(
         sm = SequenceMatcher(
             None, target_tmName_char_vec_list, row["tmName_char_vec"], True, threshold, glyph
         )
-        # result_df.at[index, "matching_blocks"] = sm.get_matching_blocks()
         result_df.at[index, "similarity"] = sm.ratio()
-    result_df = result_df.sort_values(by=["similarity"], ascending=False)
+    result_df = result_df.sort_values(
+        by=["similarity", "appl_no"], ascending=[False, False])
 
     result = list(zip(result_df["appl_no"], result_df["similarity"]))
     print(result_df[["appl_no", "tmName", "similarity"]])

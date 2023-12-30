@@ -34,28 +34,33 @@ def transform_es_return_format(hit_item):
     )
 
 
-def keyword_preprocess(searchKeywords: str = ""):
+def keyword_preprocess(searchKeywords: str = "", strict: bool = True):
     """
     Preprocessing for keywords, which indludes:
     - Replace multiple white spaces in the keyword to one white space only.
-    - Extract Chinese, English part from the keyword.
+    - Extract Chinese, English part from the keyword. (if it's not strict search)
 
+    ===
+    param:
+    - strict: if the search is strict search
     """
     keyword = re.sub(" +", " ", searchKeywords).strip()
 
-    # TODO
-    chinese_pattern = r'[\u4e00-\u9fa5]+'
-    english_pattern = r'[A-Za-z0-9,.\-\'&*:]+'
+    if strict:
+        return keyword, ""
+    else:
+        chinese_pattern = r'[\u4e00-\u9fa5]+'
+        english_pattern = r'[A-Za-z0-9,.\-\'&*:]+'
 
-    # Use re.findall to extract substrings for each language
-    chinese_matches = re.findall(chinese_pattern, keyword)
-    english_matches = re.findall(english_pattern, keyword)
+        # Use re.findall to extract substrings for each language
+        chinese_matches = re.findall(chinese_pattern, keyword)
+        english_matches = re.findall(english_pattern, keyword)
 
-    # Join the matched substrings to get the desired output
-    chinese_text = ' '.join(chinese_matches)
-    english_text = ' '.join(english_matches)
+        # Join the matched substrings to get the desired output
+        chinese_text = ' '.join(chinese_matches)
+        english_text = ' '.join(english_matches)
 
-    return chinese_text, english_text
+        return chinese_text
 
 
 def sum_scores(result1: list = [], result2: list = [], showName: bool = False):
@@ -64,28 +69,16 @@ def sum_scores(result1: list = [], result2: list = [], showName: bool = False):
     """
     tmName_dict = {}
     score_dict = {}
-    target_appl = "91002722"  # TODO: remove
-    once = False
 
     # calculate the sums
     for appl_no, tmName, score in result2:
-        # print("hey", appl_no, tmName, score)
         if showName:
             tmName_dict[appl_no] = tmName_dict.get(appl_no, "") + tmName
         else:
             score_dict[appl_no] = score_dict.get(appl_no, 0) + score
-        # if appl_no == target_appl:
-        #     print("hi", appl_no, tmName, score, result2.index((appl_no, tmName, score)))
-        #     print("eeeeeeeeeeeeee", score_dict.get(appl_no, 0))
-        # if score == 0 and once is False :
-        #     once = True
-        #     print("!!!!!!!!!!!!!!!!!!!!! index !!!!!!!!!!!!!", result2.index((appl_no, tmName, score)))
 
     for appl_no, score in result1:
         score_dict[appl_no] = score_dict.get(appl_no, 0) + score
-        # if appl_no == target_appl:
-        #     print("hi", appl_no, score)
-        #     print("ooooooooooooo", score_dict.get(appl_no, 0))
 
     # create a list of tuples with the sums
     if showName:
