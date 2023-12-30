@@ -3,10 +3,10 @@ import pandas as pd
 from datetime import datetime
 from main import text_search
 
-pinyin = False
-glyph = True
-constraints_mode = False
-same_length = False
+pinyin = True
+glyph = False
+constraints_mode = True
+same_length = True
 
 df = pd.read_excel("/home/ericaaaaaaa/logoshot/data/0716_test_data.xlsx")
 
