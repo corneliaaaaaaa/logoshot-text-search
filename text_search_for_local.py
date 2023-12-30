@@ -12,7 +12,7 @@ from utils.milvus import connect_to_milvus, get_collection, search
 es = Elasticsearch(
     hosts="trueint.lu.im.ntu.edu.tw",
     port=9200,
-    timeout=180,
+    timeout=180
 )
 
 # connect with milvus
@@ -25,19 +25,17 @@ for c in ll:
 
 # load milvus collections
 print("collection release done")
-pinyin_collection = get_collection("pinyin_embedding_300_L2")
+pinyin_collection = get_collection('pinyin_embedding_300_L2')
 print("get pinyin data collection done")
-glyph_collection = get_collection("glyph_embedding_3619_no_length")
+glyph_collection = get_collection('glyph_embedding_3619_no_length')
 print("get glyph data collection done")
-pinyin_unit_collection = get_collection("pinyin_embedding_unit")
+pinyin_unit_collection = get_collection('pinyin_embedding_unit')
 print("get pinyin unit collection done")
-glyph_unit_collection = get_collection("glyph_embedding_unit")
+glyph_unit_collection = get_collection('glyph_embedding_unit')
 print("get glyph unit collection done")
 
 df = pd.read_csv(
-    "/home/ericaaaaaaa/logoshot/utils/vector/glyph/CNS_SUMMARY_TABLE.csv",
-    encoding="utf8",
-)
+    "/home/ericaaaaaaa/logoshot/utils/vector/glyph/CNS_SUMMARY_TABLE.csv", encoding="utf8")
 
 
 def text_search(
@@ -53,7 +51,6 @@ def text_search(
     target_startTime="",
     target_endTime="",
     es=es,
-    correct_ans="",
 ):
     """
     Execute the complete process of text searching. The process includes:
@@ -86,9 +83,7 @@ def text_search(
         data_collection = glyph_collection
         unit_collection = glyph_unit_collection
     else:
-        milvus_threshold = (
-            -5
-        )  # the threshold to decide whether we only need to run milvus
+        milvus_threshold = -5   # the threshold to decide whether we only need to run milvus
         str_mode = "音"
         milvus_return_size = 10000
         es_return_size_3 = 1000
@@ -110,11 +105,6 @@ def text_search(
     final_results = []
     weight = 1
     nprobe = 1000
-    # variables for testing TODO: will be removed
-    map_tmName = True
-    in_top = 99999
-    caseType = ""
-    sms_time = 0
 
     # preprocess
     target_tmNames = keyword_preprocess(target_tmNames)
@@ -145,28 +135,17 @@ def text_search(
     else:
         # milvus query
         if pinyin:
-            milvus_results = search(
-                size=milvus_return_size,
-                nprobe=nprobe,
-                target=target_tmNames,
-                collection=data_collection,
-                type="L2",
-            )
+            milvus_results = search(size=milvus_return_size, nprobe=nprobe,
+                                    target=target_tmNames, collection=data_collection, type="L2")
         else:
-            milvus_results = search(
-                size=milvus_return_size,
-                nprobe=nprobe,
-                target=target_tmNames,
-                collection=data_collection,
-                type="IP",
-            )
+            milvus_results = search(size=milvus_return_size, nprobe=nprobe,
+                                    target=target_tmNames, collection=data_collection, type="IP")
         milvus_time = time.time() - st
-
         # sort the items with same score with id, descending
-        sorted_items = sorted(items, key=lambda item: (-item[1], -ord(item[0])))
+        milvus_results = sorted(
+            milvus_results, key=lambda item: (-item[1], item[0]))
         print(
-            f"milvus_results: {len(milvus_results)} records, spent {milvus_time:.4f} s"
-        )
+            f"milvus_results: {len(milvus_results)} records, spent {milvus_time:.4f} s")
         print(milvus_results[:data_shown])
 
         # check if we need to search through other data sources (when there are
@@ -182,7 +161,8 @@ def text_search(
                 or target_startTime != ""
                 or target_endTime != ""
             ):
-                print(f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
+                print(
+                    f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
                 target_id_list = [appl_no for appl_no, score in milvus_results]
 
                 # elastic search by id list from milvus and other search criteria
@@ -202,18 +182,21 @@ def text_search(
                     return_size=es_return_size,
                 )
                 es_time = time.time() - milvus_time - st
-                print(f"es results: {len(es_results)} records, spent {es_time:.4f} s")
+                print(
+                    f"es results: {len(es_results)} records, spent {es_time:.4f} s")
                 print(es_results[:data_shown])
 
                 # sum es score and milvus score
                 results = sum_scores(milvus_results, es_results, False)
                 sum_time = time.time() - es_time - milvus_time - st
-                print(f"summed results: {len(results)} records, spent {sum_time:.4f} s")
+                print(
+                    f"summed results: {len(results)} records, spent {sum_time:.4f} s")
                 print(results[:data_shown])
 
                 caseType = "milvus (> threshold) + es (other filter)"
             else:
-                print(f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
+                print(
+                    f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 有相似度 > threshold 的結果)")
                 results = milvus_results
                 caseType = "milvus (> threshold)"
         else:
@@ -227,7 +210,8 @@ def text_search(
                 or target_startTime != ""
                 or target_endTime != ""
             ):
-                print(f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
+                print(
+                    f"mode: {str_mode}近搜尋、有其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
                 # deal with trademarks of the same length as the keyword
                 # elastic search by other search criteria
                 target_id_list = list(map(lambda x: x[0], milvus_results))
@@ -248,16 +232,15 @@ def text_search(
                 )
                 es_time_same = time.time() - milvus_time - st
                 print(
-                    f"es_results: {len(es_results)} records, spent {es_time_same:.4f} s"
-                )
+                    f"es_results: {len(es_results)} records, spent {es_time_same:.4f} s")
                 print(es_results[:data_shown])
 
                 # sum es score and milvus score
-                same_length_results = sum_scores(milvus_results, es_results, False)
+                same_length_results = sum_scores(
+                    milvus_results, es_results, False)
                 sum_time_same = time.time() - es_time_same - milvus_time - st
                 print(
-                    f"summed same_length_results: {len(same_length_results)} records, spent {sum_time_same:.4f} s"
-                )
+                    f"summed same_length_results: {len(same_length_results)} records, spent {sum_time_same:.4f} s")
                 print(same_length_results[:data_shown])
 
                 # deal with trademarks of different length from the keyword
@@ -277,35 +260,22 @@ def text_search(
                     return_size=es_return_size_3,
                     length=len(target_tmNames),
                 )
-                es_time_diff = (
-                    time.time() - es_time_same - sum_time_same - milvus_time - st
-                )
+                es_time_diff = time.time() - es_time_same - sum_time_same - milvus_time - st
                 print(
-                    f"es_results: {len(es_results)} records, spent {es_time_diff:.4f} s"
-                )
+                    f"es_results: {len(es_results)} records, spent {es_time_diff:.4f} s")
                 print(es_results[:data_shown])
 
                 # get the id and trademark
-                es_results_id = [appl_no for appl_no, tmName, score in es_results]
-                es_results_tmName = [tmName for appl_no, tmName, score in es_results]
+                es_results_id = [appl_no for appl_no,
+                                 tmName, score in es_results]
+                es_results_tmName = [tmName for appl_no,
+                                     tmName, score in es_results]
 
                 # sequence matcher scoring
                 sms_results = sequence_matcher_scoring(
-                    es_results_id,
-                    es_results_tmName,
-                    target_tmNames,
-                    sms_threshold,
-                    glyph,
-                    unit_collection,
-                )
-                sms_time = (
-                    time.time()
-                    - es_time_diff
-                    - es_time_same
-                    - sum_time_same
-                    - milvus_time
-                    - st
-                )
+                    es_results_id, es_results_tmName, target_tmNames, sms_threshold, glyph, unit_collection)
+                sms_time = time.time() - es_time_diff - es_time_same - \
+                    sum_time_same - milvus_time - st
                 print(f"sms spent {sms_time:.4f} s")
 
                 # weight milvus results
@@ -313,31 +283,22 @@ def text_search(
                     sms_top_score = sms_results[0][1]
                     if sms_top_score == 1:
                         sms_top_score = 0.99999
-                    weight = (milvus_results[0][1] + 0.0001) / (1 - sms_top_score)
-                    sms_results = [
-                        (appl_no, (1 - score) * weight)
-                        for appl_no, score in sms_results
-                    ]
+                    weight = (milvus_results[0][1] +
+                              0.0001) / (1 - sms_top_score)
+                    sms_results = [(appl_no, (1 - score) * weight)
+                                   for appl_no, score in sms_results]
                 else:
-                    sms_results = [
-                        (appl_no, score * weight) for appl_no, score in sms_results
-                    ]
+                    sms_results = [(appl_no, score * weight)
+                                   for appl_no, score in sms_results]
 
                 # sum es score and sms score
-                different_length_results = sum_scores(sms_results, es_results, False)
-                sum_time_diff = (
-                    time.time()
-                    - sms_time
-                    - es_time_diff
-                    - es_time_same
-                    - sum_time_same
-                    - milvus_time
-                    - st
-                )
+                different_length_results = sum_scores(
+                    sms_results, es_results, False)
+                sum_time_diff = time.time() - sms_time - es_time_diff - es_time_same - \
+                    sum_time_same - milvus_time - st
                 print(
                     f"summed different_length_results: {len(different_length_results)} records,"
-                    f"spent {sum_time_diff:.4f} s"
-                )
+                    f"spent {sum_time_diff:.4f} s")
                 print(different_length_results[:data_shown])
 
                 # combine results of trademarks of same and different length
@@ -345,7 +306,8 @@ def text_search(
                 results.extend(different_length_results)
                 caseType = "milvus (< threshold) + es (other filter) + sms"
             else:
-                print(f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
+                print(
+                    f"mode: {str_mode}近搜尋、無其他搜尋條件 (milvus 無相似度 > threshold 的結果)")
                 # elastic search to get trademarks of different length from the keyword
                 es_results = esQuery(
                     es=es,
@@ -362,7 +324,8 @@ def text_search(
                     return_size=es_return_size_4,
                 )
                 es_time = time.time() - milvus_time - st
-                print(f"es_results: {len(es_results)} records, spent {es_time:.4f} s")
+                print(
+                    f"es_results: {len(es_results)} records, spent {es_time:.4f} s")
                 print(es_results[:data_shown])
 
                 # get the id and trademark name
@@ -371,13 +334,7 @@ def text_search(
 
                 # sequence matcher scoring
                 sms_results = sequence_matcher_scoring(
-                    es_results_id,
-                    es_results_tmName,
-                    target_tmNames,
-                    sms_threshold,
-                    glyph,
-                    unit_collection,
-                )
+                    es_results_id, es_results_tmName, target_tmNames, sms_threshold, glyph, unit_collection)
                 sms_time = time.time() - es_time - milvus_time - st
                 print(f"sms spent {sms_time:.4f}")
 
@@ -386,15 +343,13 @@ def text_search(
                     sms_top_score = sms_results[0][1]
                     if sms_top_score == 1:
                         sms_top_score = 0.99999
-                    weight = (milvus_results[0][1] + 0.0001) / (1 - sms_top_score)
-                    sms_results = [
-                        (appl_no, (1 - score) * weight)
-                        for appl_no, score in sms_results
-                    ]
+                    weight = (milvus_results[0][1] +
+                              0.0001) / (1 - sms_top_score)
+                    sms_results = [(appl_no, (1 - score) * weight)
+                                   for appl_no, score in sms_results]
                 else:
-                    sms_results = [
-                        (appl_no, score * weight) for appl_no, score in sms_results
-                    ]
+                    sms_results = [(appl_no, score * weight)
+                                   for appl_no, score in sms_results]
 
                 # combine results of trademarks of same and different length
                 results.extend(milvus_results)
@@ -406,40 +361,6 @@ def text_search(
     results = results[:final_return_size]
     print(f"final results: {len(results)} records")
     print(results[:data_shown])
-
-    # check results
-    if map_tmName:
-        results_id_list = [appl_no for appl_no, tmName in results]
-        tmp = esQuery(
-            es=es,
-            mode="same",
-            target_id_list=results_id_list,
-            return_size=data_shown * 3,
-        )
-        check_results = sum_scores(results, tmp, True)
-        check_results = sorted(check_results, key=lambda x: x[-1], reverse=True)
-        print("map_tmName results")
-        print(check_results[:data_shown])
-
-        # check if target in top hits
-        for r in check_results[:data_shown]:
-            if correct_ans == r[1]:
-                print("correct!", r)
-                if r[0] in results_id_list:
-                    in_top = results_id_list.index(r[0]) + 1
-                    break
-    else:
-        print("!map_tmName results")
-        print(results[:data_shown])
-
-        results_id_list = [appl_no for appl_no, tmName, score in results]
-        # check if target in top ten
-        for r in results[:data_shown]:
-            if correct_ans == r[1]:
-                print("correct!")
-                if r[0] in results_id_list:
-                    in_top = results_id_list.index(r[0]) + 1
-                    break
 
     # query full document of each result if not strict mode
     if glyph or pinyin:
@@ -457,4 +378,4 @@ def text_search(
     print(f"results returned to FE: {len(final_results)} records")
     print(final_results[:data_shown])
 
-    return final_results, in_top, caseType, et - st, sms_time
+    return final_results
