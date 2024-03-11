@@ -3,7 +3,8 @@ Logoshot is an application which allows users to find similar trademarks based o
 * Intellectual property management & inspection for the government, attorneys or companies which plan to publish new logos.
 * Simple search engine for the public when they run into a new trademark, but can't remember the exact name of the trademark.
 
-If you would like to check out a comprehensive introduction of the application, please visit [Logoshot (2023)](https://super-restaurant-7b0.notion.site/Logoshot-2023-5741a04758724be4bc46dc917216487f?pvs=4).
+If you would like to check out our app, please download it in App Store via [Logoshot](https://apps.apple.com/tw/app/logoshot/id6472791358?l=en-GB). For a comprehensive introduction of the application, please visit [Logoshot (2023)](https://super-restaurant-7b0.notion.site/Logoshot-2023-5741a04758724be4bc46dc917216487f?pvs=4).
+
 
 ### Backend components
 The backend of Logoshot can be separated into the following two components.
